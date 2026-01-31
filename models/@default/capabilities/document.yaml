@@ -1,0 +1,52 @@
+apiVersion: ai.enterprise/v1
+kind: capability
+metadata:
+  id: "urn:ordin:default:capabilities:document"
+  name: Document capability
+  description: "Turns a project's source, design and specification into a documentation site that teaches a newcomer how the system works."
+  version: 1.0.0
+  owner: gatblau
+
+purpose: >
+  Read a target project's source — plus its design and specification when
+  present — and author a concept-ladder documentation site that teaches a
+  newcomer how the system works. Composes docsgen (the generator-neutral
+  procedure) with humanise (the anti-AI-prose pass docsgen runs per page, also
+  reachable on its own). Writes only documentation; never source, and never
+  runs the pack's build command.
+
+composedOf:
+  skills:
+    - "urn:ordin:default:skills:documentation:docsgen"
+    - "urn:ordin:default:skills:documents:humanise"
+  commands: []
+  modes:
+    - "urn:ordin:default:rules:modes:observe-mode"
+    - "urn:ordin:default:rules:modes:infer-mode"
+    - "urn:ordin:default:rules:modes:plan-mode"
+    - "urn:ordin:default:rules:modes:explain-mode"
+    - "urn:ordin:default:rules:modes:escalate-mode"
+  rules:
+    - "urn:ordin:default:rules:orchestrators:working-modes"
+    - "urn:ordin:default:rules:layer:identifier-verification"
+    - "urn:ordin:default:rules:layer:output-language"
+
+toolBindings: []
+
+defaultToolPolicy:
+  allowed:
+    - filesystem.read
+    - filesystem.write.docs
+  requiresHumanApproval: []
+  prohibited:
+    - source.write
+  # Patch mode is absent: the site is an authored artefact, not source. Execute
+  # is absent: running the pack's buildCommand is the operator's action, not the
+  # capability's. The universal safety floor (git/PR/publish/migration mutations)
+  # is asserted once at the workspace level and is not
+  # redeclared here.
+
+verificationGates:
+  - name: every-page-traces-to-evidence
+    invariant: no-claim-without-citation
+    failureBehaviour: stop-and-report

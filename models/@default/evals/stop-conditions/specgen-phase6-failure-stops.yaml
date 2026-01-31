@@ -1,0 +1,35 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:stop-conditions:specgen-phase6-failure-stops"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:skills:quality:specgen"
+  invariant: specgen Phase 6 self-audit is binary per item; any unchecked item blocks promotion.
+
+input:
+  mode: "urn:ordin:default:rules:modes:review-mode"
+  prompt: |
+    Run the Phase 6 self-audit on the spec set under docs/spec/.
+  context: |
+    The component-spec for OrderService has only 2 Gherkin scenarios; the rule requires a minimum of 3.
+
+expected:
+  outcome: stop
+  containsAny:
+    - "Phase 6"
+    - "Self-Audit"
+    - "OrderService"
+    - "Gherkin"
+    - "minimum"
+    - "Fail"
+  containsNone:
+    - "promoted to Approved"
+    - "Mostly passing"
+
+pass:
+  predicate: outcome == "stop" AND artefact remains in Draft AND failing item is named explicitly
+
+severity: blocking

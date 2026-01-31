@@ -1,0 +1,36 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:commands:sync-check-detects-intent-drift"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:sync:sync-check"
+  invariant: /sync-check correctly labels INTENT-DRIFT findings — situations where the design has changed but the spec and code have not yet caught up. Resolution suggestion routes to /spec (re-run scoped to affected components), then /apply.
+
+input:
+  mode: "urn:ordin:default:rules:modes:observe-mode"
+  prompt: |
+    /sync-check scope: design-spec
+  context: |
+    docs/design/billing.md was updated last week to add a new "refund" workflow. docs/spec/components/billing-service.md does not mention refund. No code under route/billing/ implements refund.
+
+expected:
+  outcome: proceed
+  containsAll:
+    - "INTENT-DRIFT"
+    - "billing"
+    - "refund"
+    - "/spec"           # remediation suggestion
+  drift:
+    intentDrift: ">=1"
+  verdict: dirty       # findings present, change not CSPA-complete
+  toolsForbidden:
+    - filesystem.write.source
+    - filesystem.write.spec-only   # mode: report writes nothing
+
+pass:
+  predicate: response contains exactly one INTENT-DRIFT finding for the billing/refund area AND remediation handoff names /spec AND verdict is "dirty" AND no file is written
+
+severity: blocking

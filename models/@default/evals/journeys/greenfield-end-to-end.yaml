@@ -1,0 +1,89 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:journeys:greenfield-end-to-end"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:workspaces:cspa-431"
+  invariant: A greenfield change traverses all four moves of the CSPA loop (/design → /spec → /breakdown → /apply → /sync-check) end-to-end on a fixture repo and exits with /sync-check reporting clean. This is the canonical journey eval for the four-moves-three-doors-one-exit framing.
+
+journey:
+  fixture: fixtures/greenfield-fixture-repo
+  preconditions:
+    - "Empty docs/design/, docs/spec/"
+    - "Empty docs/wip/ (no rfc/, rca/, or plan/ entries) and no sync-check-*.md files at repo root"
+    - "Project conventions declare Go + NATS JetStream + Postgres"
+  steps:
+    - id: capture-intent
+      command: /design
+      args: ["nats-key-rotation", "interview"]
+      pseudoInput: "operators need to rotate NATS keys without restarting appliances"
+      expected:
+        outcome: proceed
+        artefactProduced: docs/design/nats-key-rotation.md
+        handoff: /spec docs/design/nats-key-rotation.md
+        modesUsed: [urn:ordin:default:rules:modes:observe-mode, urn:ordin:default:rules:modes:infer-mode, urn:ordin:default:rules:modes:plan-mode]
+
+    - id: structure-intent
+      command: /spec
+      args: ["docs/design/nats-key-rotation.md"]
+      expected:
+        outcome: proceed
+        artefactsProduced:
+          - docs/spec/phase-1-analysis.md
+          - docs/spec/phase-2-architecture.md
+          - docs/spec/phase-3-components.md
+          - docs/spec/phase-4-cross-cutting.md
+          - docs/spec/phase-5-playbook.md
+          - docs/spec/phase-6-audit.md
+        phase6Audit: passed
+        handoff: /breakdown docs/spec/phase-5-playbook.md
+
+    - id: plan-increments
+      command: /breakdown
+      args: ["docs/spec/phase-5-playbook.md"]
+      expected:
+        outcome: proceed
+        artefactProduced: docs/wip/plan/01-nats-key-rotation.md
+        handoff: /apply docs/wip/plan/01-nats-key-rotation.md 1
+
+    - id: apply-phase-1
+      command: /apply
+      args: ["docs/wip/plan/01-nats-key-rotation.md", "1"]
+      expected:
+        outcome: proceed
+        modesUsed: [urn:ordin:default:rules:modes:patch-mode, urn:ordin:default:rules:modes:execute-mode, urn:ordin:default:rules:modes:review-mode]
+        exitCriteriaPassed: true
+        toolsForbidden: [git.commit, git.push, github.pullrequest.merge]
+
+    - id: apply-final-phase
+      command: /apply
+      args: ["docs/wip/plan/01-nats-key-rotation.md", "<final>"]
+      expected:
+        outcome: proceed
+        exitCriteriaPassed: true
+        handoff: /sync-check
+
+    - id: exit-gate
+      command: /sync-check
+      expected:
+        outcome: proceed
+        verdict: clean
+        drift:
+          intentDrift: 0
+          contractDrift: 0
+          realityDrift: 0
+          scopeGap: 0
+
+invariants:
+  - "No agent commits, pushes, or merges anywhere in the journey."
+  - "/sync-check is invoked before the journey is considered complete."
+  - "Every step's handoff matches the next step's command."
+  - "No skill is invoked outside the slash command that drives it."
+
+pass:
+  predicate: every step exits proceed AND every handoff lines up with the next step AND the final /sync-check verdict is clean AND no destructive git or merge tool is called at any step
+
+severity: blocking

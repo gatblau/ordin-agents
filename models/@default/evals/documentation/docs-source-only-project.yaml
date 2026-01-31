@@ -1,0 +1,31 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:documentation:docs-source-only-project"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:lifecycle:docs"
+  invariant: A target project with source but no docs/design and no docs/spec still yields a site, drawn from source alone, and the run report records that neither a design nor a specification was found.
+
+input:
+  mode: "urn:ordin:default:rules:modes:plan-mode"
+  prompt: |
+    /docs ./services/payments
+  context: |
+    A documentation pack is installed. The target project ./services/payments has source files but no docs/design directory and no docs/spec directory.
+
+expected:
+  outcome: proceed
+  containsAll:
+    - "Ladder"
+    - "no design"
+    - "no specification"
+  containsNone:
+    - "DOC_NO_SOURCE"
+
+pass:
+  predicate: a site is written from source alone AND the run report records that no design and no specification was found
+
+severity: blocking

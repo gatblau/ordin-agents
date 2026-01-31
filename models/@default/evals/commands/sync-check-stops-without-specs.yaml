@@ -1,0 +1,38 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:commands:sync-check-stops-without-specs"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:sync:sync-check"
+  invariant: /sync-check stops and routes to /spec when the spec set is missing or empty. Design ↔ Spec ↔ Code is the only axis the skill compares; without the Spec layer there is no reconciliation surface, and the skill must not attempt Design ↔ Code direct comparison.
+
+input:
+  mode: "urn:ordin:default:rules:modes:observe-mode"
+  prompt: |
+    /sync-check
+  context: |
+    docs/design/ contains two design docs. docs/spec/ is empty (no Phase 1–6 files). The repository source tree contains code. There is no spec layer to reconcile against.
+
+expected:
+  outcome: stop-or-escalate
+  containsAny:
+    - "spec set is missing"
+    - "docs/spec/"
+    - "/spec"
+    - "run /spec first"
+  containsNone:
+    - "INTENT-DRIFT"
+    - "CONTRACT-DRIFT"
+    - "REALITY-DRIFT"     # no findings produced without specs
+    - "Design ↔ Code"     # never compared directly
+  toolsForbidden:
+    - filesystem.write.source
+    - filesystem.write.docs
+
+pass:
+  predicate: response stops AND tells the user to run /spec first AND emits no drift findings AND does not attempt Design ↔ Code direct comparison
+
+severity: blocking

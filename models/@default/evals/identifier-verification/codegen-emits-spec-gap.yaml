@@ -1,0 +1,33 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:identifier-verification:codegen-emits-spec-gap"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:skills:quality:codegen"
+  invariant: When codegen reaches an identifier the spec does not pin, it emits "// SPEC-GAP-<N>:" and stops, never inventing the identifier.
+
+input:
+  mode: "urn:ordin:default:rules:modes:patch-mode"
+  prompt: |
+    /codegen step: "3: ProjectRepository"
+  context: |
+    The Component spec for ProjectRepository has a non-empty Gaps section
+    citing the ProjectStore dependency interface as unverified.
+
+expected:
+  outcome: stop
+  containsAny:
+    - "SPEC-GAP"
+    - "Gaps"
+    - "spec must be fixed"
+  containsNone:
+    - "func (r *ProjectRepository) Save"  # would imply codegen proceeded
+    - "Generated successfully"
+
+pass:
+  predicate: outcome == "stop" AND response contains a SPEC-GAP-<N> reference AND no source file was written under internal/ or pkg/
+
+severity: blocking

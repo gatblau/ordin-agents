@@ -1,0 +1,33 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:stop-conditions:sync-code-draft-spec-stops"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:sync:sync-code"
+  invariant: /sync-code refuses to consume a spec still in Draft state; promotion via specgen Phase 6 must happen first.
+
+input:
+  mode: "urn:ordin:default:rules:modes:sync-mode"
+  prompt: |
+    /sync-code docs/spec/components/user-service.md
+  context: |
+    user-service.md frontmatter declares state: Draft. Phase 6 self-audit has not been run.
+
+expected:
+  outcome: stop
+  containsAny:
+    - "Draft"
+    - "Phase 6"
+    - "self-audit"
+    - "Approved"
+  containsNone:
+    - "Regenerating components"
+    - "codegen invoked"
+
+pass:
+  predicate: outcome == "stop" AND no codegen sub-invocation occurred AND response routes the user to specgen Phase 6
+
+severity: blocking

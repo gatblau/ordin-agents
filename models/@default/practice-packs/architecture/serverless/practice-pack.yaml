@@ -1,0 +1,193 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+
+metadata:
+  id: "urn:ordin:default:practice-packs:architecture:serverless"
+  name: Serverless functions
+  version: 1.0.0
+  # Architecture-team owned — NOT the workspace owner (README ownership boundary).
+  owner: architecture-guild
+  # Descriptive metadata.
+  description: "Serverless, one function per trigger: stateless functions bound to events, with external state and a cold-start budget. Names no language or platform."
+  category: sdlc
+  # pack class lets a profile require "≥1 architecture pack" by class.
+  class: architecture
+  # roles/domains only — NO `languages` (the language pairing is the Workspace
+  # Profile's, never an architecture pack's). Roles drawn from the controlled
+  # vocabulary (acetypes.AudienceRoles): developer, architect.
+  audience:
+    roles:
+      - developer
+      - architect
+    domains:
+      - backend-services
+  useCases:
+    - title: Serverless function-per-trigger shape
+      summary: Supply the function-per-trigger reference architecture, the stateless/idempotent design patterns, and the trigger-binding conventions to the workspace's codegen/designgen skills; the concrete function runtime and language are the stack pack's and the Workspace Profile's.
+
+description: >
+  Serverless reference architecture for stateless, single-responsibility
+  functions bound one-to-one to event triggers. Carries the
+  event-source → function → external-state topology, the design patterns
+  (stateless handler, idempotent trigger, externalised state,
+  single-responsibility function), the trigger-binding and event-source
+  conventions, the event-source mapping good practice against an ABSTRACT
+  source, the required observability signals (invocations, cold-starts,
+  throttles), and the architectural anti-patterns that forbid stateful or
+  long-running handlers. It names no language, framework, runtime or platform:
+  "the function runtime" and "the trigger source" are referred to abstractly,
+  so this pack composes with any stack pack that supplies a concrete runtime.
+  Consumed by the cspa workspace's codegen, designgen and runbookgen skills via
+  "active Practice Pack" indirection; the language pairing is declared by the
+  Workspace Profile, not here.
+
+appliesTo:
+  workspaces:
+    - "urn:ordin:default:workspaces:cspa-431@^1.0.0"
+
+# ---- architecture-side items (this family writes these; no stack-side item) ----
+
+# Event-source → function → external-state topology, a language-neutral function
+# skeleton, and the binding ADRs. Bodies live in the cited reference files.
+referenceArchitecture:
+  diagrams:
+    - reference-architecture/topology.md
+  serviceTemplate: reference-architecture/service-template.md
+  adrs:
+    - id: stateless-handlers
+      statement: A function holds no state between invocations; all state lives in an external store the function reads and writes per invocation.
+    - id: externalised-state
+      statement: Durable state is never kept in function memory, local disk, or a warm container; it is read from and written to an external store on every invocation.
+    - id: idempotent-triggers
+      statement: An event source may deliver the same trigger more than once; every function is idempotent on an idempotency key so re-delivery has the same effect as a single delivery.
+
+# Each entry carries a `when` predicate so it applies conditionally
+# (PACK_PATTERN_NO_WHEN clears). Bodies are the cited reference files.
+designPatterns:
+  required:
+    - id: stateless-handler
+      ref: patterns/stateless-handler.md
+      when: "a function processes a trigger"
+    - id: idempotent-trigger
+      ref: patterns/idempotent-trigger.md
+      when: "an event source may deliver more than once"
+  recommended:
+    - id: single-responsibility-function
+      when: "a function would otherwise branch on the trigger type or fan out to several unrelated effects"
+    - id: externalised-state
+      when: "a function needs to read or persist state across invocations"
+  prohibited:
+    - id: long-running-work-in-handler
+      reason: "exceeds the function budget; offload to a queue or a step instead of blocking inside the handler"
+    - id: shared-mutable-state-in-function
+      reason: "a function relies on warm-container memory surviving between invocations; the next invocation may be a cold start on a fresh instance"
+
+# Shape contracts, abstract — not a wire schema. Body: triggers/binding.md.
+interfaceConventions:
+  triggers:
+    bindingContract: "one function binds to exactly one trigger; the trigger source maps an event to a single handler invocation"
+    eventSourcePayload: "the event-source payload is a typed envelope with id, source, occurredAt, traceparent, tenant"
+    functionNaming: "<bounded-context>.<capability>.<trigger-type>"
+    envelopeRequiredFields:
+      - id
+      - source
+      - occurredAt
+      - traceparent
+      - tenant
+    ref: triggers/binding.md
+
+# Against an ABSTRACT event source (no product named). The trigger/event-source
+# mapping: ack/retry/dead-letter policy. Body: triggers/binding.md.
+brokerClientPractice:
+  consumerPattern: event-source-mapping
+  ackPolicy: ack-after-effect-committed
+  retryPolicy: bounded-with-exponential-backoff
+  maxDeliver: bounded
+  deadLetterThreshold: maxDeliver-exceeded
+  redeliveryBackoff: exponential
+  ref: triggers/binding.md
+
+# ARCHITECTURAL libraries only, named abstractly. The logger/runtime/test
+# framework are the stack pack's separate list (disjoint seam).
+approvedLibraries:
+  required:
+    - name: "a function-runtime/handler abstraction"
+      reason: "the abstract entry point that binds a trigger to a handler signature; the concrete runtime is the stack pack's"
+  blocked: []
+
+# The WHAT only (required signals). The HOW (logging library, field mechanics)
+# is the stack pack's slice of this seam. Body: observability/required-signals.md.
+observabilityConventions:
+  metrics:
+    requiredCounters:
+      - invocations_total
+      - cold_start_total
+      - throttle_total
+      - errors_total
+  spanAttributes:
+    - function.name
+    - trigger.source
+  requiredLogFields:
+    - trace_id
+    - tenant_id
+    - function
+  ref: observability/required-signals.md
+
+# Keyed on ARCHITECTURAL artefacts, never **/*.go (that is the stack pack's).
+skillActivations:
+  - skill: codegen
+    when: "files matching **/functions/** or **/handlers/** are in scope"
+  - skill: designgen
+    when: "files matching **/functions/** or **/handlers/** are in scope"
+
+antiPatterns:
+  - id: shared-mutable-state-in-function
+    reason: "relying on warm-container memory to survive between invocations; a cold start on a fresh instance loses it, so each invocation must externalise its state"
+  - id: long-running-work-in-handler
+    reason: "blocking work inside the handler exceeds the cold-start and execution budget; offload to a queue or a step and return promptly"
+  - id: synchronous-function-chaining
+    reason: "one function calling the next synchronously couples their availability and latency and multiplies the cold-start cost; chain via an event source instead"
+
+references:
+  - principles.md
+  - anti-patterns.md
+  - patterns/stateless-handler.md
+  - patterns/idempotent-trigger.md
+  - triggers/binding.md
+  - observability/required-signals.md
+  - reference-architecture/topology.md
+  - reference-architecture/service-template.md
+
+contextLoading:
+  # Keep the eager set small to avoid context-window flooding (HLD NFR).
+  eager:
+    - principles.md
+    - anti-patterns.md
+  lazy:
+    - patterns/stateless-handler.md
+    - patterns/idempotent-trigger.md
+    - triggers/binding.md
+    - observability/required-signals.md
+    - reference-architecture/topology.md
+    - reference-architecture/service-template.md
+
+conflictResolution:
+  # Above a stack pack ONLY on an unavoidable overlap (default: no overlap, so
+  # this never fires for a well-allocated stack pack). Architecture outranks
+  # stack on the rare genuine clash (README §"two seams").
+  overridePriority: 50
+
+governance:
+  riskTier: 2
+  approval:
+    requiredFrom:
+      - architecture-guild
+  # observabilityConventions signal set is authored as proposed and flagged for
+  # platform/observability-team ratification at this review (Phase 1 OQ-3).
+  reviewDate: 2026-01-31
+
+# Composition with overlays:
+# - Brand/jurisdiction overlays may STRENGTHEN this pack (block a library,
+#   tighten the cold-start budget, mandate an extra required signal); they may
+#   not weaken safety-relevant claims (statelessness, idempotency, the budget).
+# - This pack names no language; language overlays govern prose only.

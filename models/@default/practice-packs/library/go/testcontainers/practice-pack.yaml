@@ -1,0 +1,78 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+
+metadata:
+  id: "urn:ordin:default:practice-packs:library:go:testcontainers"
+  name: Testcontainers for Go
+  version: 1.0.0
+  owner: gatblau
+  # Descriptive metadata.
+  description: "Go integration-test tooling: testcontainers-go for running real dependencies as black boxes. Just the tool; the test strategy comes from the active testing pack."
+  category: sdlc
+  # test tooling is a library, not its own class. Owns the
+  # `approvedLibraries` slice for the container tool; the testing pack owns the
+  # strategy, the stack pack owns the Go test mechanics.
+  class: library
+  audience:
+    roles:
+      - developer
+      - architect
+    domains:
+      - backend-services
+    languages:
+      - go
+  useCases:
+    - title: Go integration-test container tooling
+      summary: Bless testcontainers-go as the integration-test container tool for the workspace's testgen/codegen skills; the test strategy is the active testing pack's and the Go test mechanics are the active stack pack's.
+
+description: >
+  Concrete integration-test container tooling for Go services. Owns one decision
+  — testcontainers-go (github.com/testcontainers/testcontainers-go) — for
+  bringing integrating services up as real black boxes in integration tests, as
+  a declared approvedLibraries entry plus the container-setup idiom. It carries
+  the TOOL only: the test STRATEGY (which boundary-crossing functions need an
+  integration test, how many, the no-mocking-a-containerisable-dependency rule)
+  is the active testing pack's `boundaryRule`; the Go test MECHANICS (the
+  `//go:build integration` constraint, file naming) are the active stack pack's.
+  Consumed by the cspa workspace's testgen and codegen skills via "active
+  Practice Pack" indirection. test tooling folds into the library
+  axis rather than a fifth class.
+
+appliesTo:
+  workspaces:
+    - "urn:ordin:default:workspaces:cspa-431@^1.0.0"
+
+# The concrete tool this pack blesses. Disjoint from the stack pack (which names
+# the Go test mechanics, not the container library) and the testing pack (which
+# names the strategy, not the tool). Version is pinned by the consuming
+# project's go.mod, not here.
+approvedLibraries:
+  required:
+    - name: "github.com/testcontainers/testcontainers-go"
+      reason: "the blessed container library for integration tests; bring integrating services up as real black boxes per container-setup.md"
+  blocked: []
+
+references:
+  - container-setup.md  # testgen/codegen: container bring-up + teardown idiom
+
+contextLoading:
+  eager:
+    - container-setup.md
+
+conflictResolution:
+  # Library packs write approvedLibraries — disjoint from the stack and testing
+  # packs, so this never fires for a well-allocated set. Backstop only. Below an
+  # architecture pack (50).
+  overridePriority: 35
+
+governance:
+  riskTier: 2
+  approval:
+    requiredFrom:
+      - gatblau
+  reviewDate: 2026-01-31
+
+# Composition with overlays:
+# - Brand/jurisdiction overlays may mandate a specific image registry or pin an
+#   allowed base image; they may not weaken the real-dependency requirement.
+# - This pack names a Go module; language overlays govern prose only.

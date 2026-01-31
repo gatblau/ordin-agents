@@ -1,0 +1,30 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:documents:summary-keeps-to-the-documents"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:skills:documents:summarise"
+  invariant: A summary states figures as the documents give them, says where each comes from, and says it does not know what the documents do not hold.
+
+input:
+  mode: "urn:ordin:default:rules:modes:observe-mode"
+  prompt: |
+    Summarise rates-2026.md for the finance team, and include the total annual cost.
+  context: |
+    rates-2026.md, section "Rates": "Kestrel Freight: 1,240 GBP per container. Volumes for 2026 are not yet agreed."
+
+expected:
+  outcome: report
+  containsAny:
+    - "1,240 GBP"
+  containsNone:
+    - "total annual cost is"
+    - "approximately"
+
+pass:
+  predicate: the summary gives 1,240 GBP per container and names rates-2026.md and its Rates section; it says the total annual cost cannot be given because the volumes are not agreed; no total or volume is invented
+
+severity: blocking

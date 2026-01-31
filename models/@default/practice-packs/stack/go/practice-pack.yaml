@@ -1,0 +1,73 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+
+metadata:
+  id: "urn:ordin:default:practice-packs:stack:go"
+  name: Go
+  version: 1.0.0
+  owner: gatblau
+  # Descriptive metadata.
+  description: "Go stack practice: build, lint, test, and coverage commands, project layout, and integration-test mechanics."
+  category: sdlc
+  # pack class lets a profile require "≥1 stack pack" by class.
+  class: stack
+  audience:
+    roles:
+      - developer
+      - architect
+    domains:
+      - backend-services
+    languages:
+      - go
+  useCases:
+    - title: Go service codegen
+      summary: Supply Go build/test/layout conventions to the workspace's codegen + testgen skills.
+
+description: >
+  Stack-specific practice for Go services. Supplies build, lint, test, and
+  coverage commands; file-layout conventions (internal/, pkg/, the standard
+  per-component file set); annotation conventions (GoDoc, Swag); integration-
+  test Go mechanics (build tag `integration`, file naming — the container
+  library itself is the active library pack's); and Go-specific
+  observability conventions (signal handlers, goroutine leaks, context
+  propagation). Consumed by the cspa workspace's codegen, testgen, and
+  runbookgen skills via "active Practice Pack" indirection — workspace skills
+  do not name Go directly; this pack does.
+
+
+appliesTo:
+  workspaces:
+    - "urn:ordin:default:workspaces:cspa-431@^1.0.0"
+
+# the structured twin of build-commands.md. ComposeToolPolicy
+# aggregates the `toolchain` of the RESOLVED packs into the install's permission
+# allowlist (least privilege — only selected stacks contribute). build-commands.md
+# stays the human guide.
+# the command allow-list is withdrawn — the registry composes none.
+# The build/test/lint commands live in build-commands.md (prose); pre-approval
+# is harness config. The `toolchain` block is the stack's
+# tool-usage policy: deny-side `forbiddenFlags` + the `coverageFloor` quality
+# gate. Both are stack-specific, so they stay here.
+toolchain:
+  forbiddenFlags:
+    - --no-verify
+    - "-k"
+    - --skip
+    - --no-cov
+  coverageFloor: 0.70
+
+references:
+  - principles.md                # codegen doctrine — language design tenets
+  - anti-patterns.md             # codegen review gate — idioms to reject
+  - build-commands.md            # codegen Phase C4 / /apply gate / /sync-check gate
+  - file-layout.md               # codegen Phase A6, Phase B sub-order
+  - annotation-conventions.md    # codegen Phase B, GoDoc and Swag rules
+  - integration-testing.md       # testgen integration-test patterns; codegen Phase C
+  - observability-conventions.md # runbookgen extraction signals
+
+# Composition with overlays:
+# - Brand overlays may add brand-specific approved libraries or blocked libraries.
+# - Jurisdiction overlays may add jurisdiction-specific compliance rules
+#   (e.g. PII handling) that this pack must respect.
+# - Language overlays do not interact with this pack; locale governs prose,
+#   this pack governs code shape.

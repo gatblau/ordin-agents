@@ -1,0 +1,32 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:documents:humanise-keeps-every-point"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:skills:documents:humanise"
+  invariant: A rewrite removes the habits of machine-written prose and keeps every claim, figure, date and condition of the original.
+
+input:
+  mode: "urn:ordin:default:rules:modes:plan-mode"
+  prompt: |
+    Make this read as a person wrote it: "It is worth noting that our pivotal new onboarding process is a testament to our commitment to excellence. It seamlessly reduces set-up time from 5 days to 2 days, but only for customers on the annual plan, from 1 January 2026."
+  context: |
+    No other documents.
+
+expected:
+  outcome: report
+  containsAny:
+    - "2 days"
+  containsNone:
+    - "pivotal"
+    - "testament"
+    - "seamlessly"
+    - "It is worth noting"
+
+pass:
+  predicate: the rewrite keeps the reduction from 5 days to 2 days, the condition that it applies only to customers on the annual plan, and the date 1 January 2026; it drops the promotional words and the announcement; it adds no new claim
+
+severity: blocking

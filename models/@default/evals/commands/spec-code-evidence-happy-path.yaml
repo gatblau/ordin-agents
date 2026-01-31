@@ -1,0 +1,70 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:commands:spec-code-evidence-happy-path"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:lifecycle:spec"
+  invariant: /spec in code-evidence mode (Branch C) produces a Phase 3 component spec where every assertion in Public Interface, Internal Logic, Error Table, and Acceptance Criteria carries one of the four classification tags ([Required], [Observed], [Not implemented], [Gap]). Every [Required] carries a witness citation. The Mode banner declares code-evidence and the per-component classification summary matches the actual tag counts in the spec.
+
+input:
+  mode: "urn:ordin:default:rules:modes:observe-mode"
+  prompt: |
+    /spec docs/design/legacy-payment-service.md code-paths: internal/payment, cmd/payment-server witness-sources: internal/payment/processor_test.go
+  context: |
+    docs/design/legacy-payment-service.md exists from a prior `/design` code-evidence run. Its Mode banner reads "Mode: code-evidence" and its Requirements section contains:
+      Must preserve:
+        - ProcessPayment returns ErrInsufficientFunds when the payment provider returns 402 (witness: test:processor_test.go:TestInsufficientFunds)
+        - POST /payments accepts {amount_minor_units, currency, customer_id} and returns 200 with a Receipt (witness: user-confirmation: matches the payment provider contract)
+      Observed but not required:
+        - NATS message emitted on payments.received after successful processing
+        - Postgres row inserted into payments table on successful processing
+      Drop candidates: (none in initial draft)
+      Gaps:
+        - Refund flow: comment-only signal in processor.go; no implementation, no test
+    The repository contains:
+      - internal/payment/processor.go — ProcessPayment(ctx, req) (Receipt, error); calls the payment provider; writes payments table row; emits NATS payments.received message.
+      - internal/payment/repository.go — Postgres queries against payments table.
+      - cmd/payment-server/main.go — POST /payments handler.
+      - internal/payment/processor_test.go — one passing test TestInsufficientFunds covering the 402 path.
+    No tests cover the NATS emission, the database write, or the happy path of ProcessPayment. There is no /spec output in docs/spec/ yet.
+
+expected:
+  outcome: proceed
+  containsAll:
+    - "Mode: code-evidence"
+    - "ProcessPayment"
+    - "POST /payments"
+    - "[Required:"
+    - "[Observed:"
+    - "[Gap"
+    - "witness:"
+    - "evidence:"
+    - "docs/spec/phase-3-components.md"
+    - "Required:"        # in classification summary
+    - "Observed:"
+    - "Not implemented:"
+    - "Gap:"
+  containsNone:
+    - "// TODO"
+    - "fast"             # banned weasel word
+    - "secure"
+    - "ProcessRefund"    # only a comment-only signal in the design's Gaps; must NOT be promoted into a [Required] or [Observed] assertion
+    - "[Required: ProcessRefund"
+    - "[Observed: ProcessRefund"
+    - "RefundReceipt"    # not present in the supplied code or design
+  classificationRules:
+    - "ProcessPayment ErrInsufficientFunds path is [Required: test:internal/payment/processor_test.go:TestInsufficientFunds]"
+    - "POST /payments contract is [Required: user-confirmation: matches the payment provider contract]"
+    - "NATS payments.received emission is [Observed: evidence:internal/payment/processor.go:<line>] (no test, no contract)"
+    - "Postgres payments table write is [Observed: evidence:internal/payment/repository.go:<line>] (no test, no contract)"
+    - "ProcessPayment happy path (without ErrInsufficientFunds) is [Observed] (in code, no test for the happy path)"
+    - "Refund flow is [Gap] only (carried forward from the design's Gaps subsection); never appears in any [Required] or [Observed] assertion"
+    - "The classification summary at the top of the ProcessPayment component spec equals the actual number of tags in the spec body"
+
+pass:
+  predicate: response writes the spec files AND the per-component Mode banner declares code-evidence with a classification summary AND every assertion in Public Interface, Internal Logic, Error Table, and Acceptance Criteria carries exactly one classification tag AND every [Required] carries a witness citation AND no comment-only signal from the design's Gaps subsection is promoted to [Required] or [Observed] AND the classification summary matches the actual tag counts
+
+severity: blocking

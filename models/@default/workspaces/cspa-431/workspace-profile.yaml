@@ -1,0 +1,218 @@
+apiVersion: ai.enterprise/v1
+kind: workspace-profile
+metadata:
+  id: "urn:ordin:default:workspaces:cspa-431"
+  name: Software Engineer (CSPA-431)
+  version: 1.0.0
+  owner: gatblau
+  description: "The software-engineering agent: it runs the capture, structure, plan and apply loop from design to spec to code, with every change proposed and every verification gate binding."
+  # Descriptive metadata.
+  category: sdlc
+  audience:
+    roles:
+      - developer
+      - architect
+    domains:
+      - software-engineering
+    languages:
+      - go
+  useCases:
+    - title: Greenfield feature
+      summary: Design → spec → breakdown → apply → sync-check.
+    - title: Change request
+      summary: Capture an RFC, re-spec, then apply incrementally.
+    - title: Incident / drift
+      summary: Root-cause an incident, then reconcile design ↔ spec ↔ code.
+
+systemRole: "urn:ordin:default:workspaces:cspa-431:system-role"
+
+defaultRules:
+  - "urn:ordin:default:rules:orchestrators:working-modes"        # the working modes; the agent loads the nine its allowedOperatingModes names
+  # Layer rules — listed so the closure transitively includes them.
+  - "urn:ordin:default:rules:layer:identifier-verification"
+  - "urn:ordin:default:rules:layer:output-language"
+  - "urn:ordin:default:rules:layer:sql-safety"
+
+allowedOperatingModes:
+  - "urn:ordin:default:rules:modes:observe-mode"
+  - "urn:ordin:default:rules:modes:infer-mode"
+  - "urn:ordin:default:rules:modes:plan-mode"
+  - "urn:ordin:default:rules:modes:patch-mode"
+  - "urn:ordin:default:rules:modes:sync-mode"
+  - "urn:ordin:default:rules:modes:review-mode"
+  - "urn:ordin:default:rules:modes:execute-mode"
+  - "urn:ordin:default:rules:modes:explain-mode"
+  - "urn:ordin:default:rules:modes:escalate-mode"
+
+defaultMode: "urn:ordin:default:rules:modes:observe-mode"
+
+# Control loop: the operating strategy this role runs, as its own resolvable part.
+# cspa = tool-iterative over the nine modes. The loop carries no transition graph:
+# the within-iteration edges are derived from the modes' own exit conditions and
+# the start node is `defaultMode` above. allowedOperatingModes stays the closed-set
+# authority; loop.modes must be a subset of it.
+controlLoop: "urn:ordin:default:rules:control-loops:cspa"
+
+capabilities:
+  - "urn:ordin:default:capabilities:design"
+  - "urn:ordin:default:capabilities:spec"
+  - "urn:ordin:default:capabilities:build"
+  - "urn:ordin:default:capabilities:verify"
+  - "urn:ordin:default:capabilities:resolve-drift"
+  - "urn:ordin:default:capabilities:release"
+  - "urn:ordin:default:capabilities:run"
+  - "urn:ordin:default:capabilities:maintain"
+  - "urn:ordin:default:capabilities:document"
+
+commands:
+  # Capture-intent doors
+  - "urn:ordin:default:commands:intent:design"                 # door 1 — greenfield
+  - "urn:ordin:default:commands:intent:rfc"                    # door 2 — change request
+  - "urn:ordin:default:commands:intent:rca"                    # door 3 — incident
+  # Lifecycle moves
+  - "urn:ordin:default:commands:lifecycle:spec"                   # move 2 — structure intent
+  - "urn:ordin:default:commands:lifecycle:breakdown"              # move 3 — plan increments
+  - "urn:ordin:default:commands:lifecycle:apply"                  # move 4 — apply increments
+  # Sync family — drift detection and resolution
+  - "urn:ordin:default:commands:sync:sync-check"             # exit gate — Design ↔ Spec ↔ Code in sync
+  - "urn:ordin:default:commands:sync:sync-spec"              # resolver — code → spec direction
+  - "urn:ordin:default:commands:sync:sync-code"              # resolver — spec → code direction
+  # Documentation
+  - "urn:ordin:default:commands:lifecycle:docs"                  # writes the teaching documentation site
+
+contextResources:
+  # On-demand reference material the
+  # role may consult. Placed at the client's native context path (e.g.
+  # .claude/context/<slug>.md) and pulled in when relevant, never held always-on.
+  - "urn:ordin:default:context-resources:cspa-glossary"     # the methodology's terms
+  - "urn:ordin:default:context-resources:kind-vocabulary"   # the agent-anatomy vocabulary
+
+selectablePracticePacks:
+  # Packs the user MAY choose at install time, across the pack classes. The requiredPracticePacks rules below make ≥1 stack and ≥1 testing
+  # pack mandatory; architecture, database and library packs are optional. The
+  # compose builder groups these by class and marks the required classes.
+  # — stack (language binding; ≥1 required)
+  - id: "urn:ordin:default:practice-packs:stack:go"
+    description: "Go services: codegen / testgen / runbookgen toolchain and conventions."
+  # — database (engine binding; optional — schemagen/dbaudit stop-and-ask if absent)
+  - id: "urn:ordin:default:practice-packs:database:postgres"
+    description: "Postgres / PL-pgSQL: engine-specific rules consumed by dbaudit and schemagen."
+  # — testing strategy (≥1 required)
+  - id: "urn:ordin:default:practice-packs:testing:test-pyramid"
+    description: "Test pyramid: many unit, fewer integration, few end-to-end."
+  - id: "urn:ordin:default:practice-packs:testing:test-trophy"
+    description: "Test trophy: integration-weighted strategy."
+  - id: "urn:ordin:default:practice-packs:testing:testing-honeycomb"
+    description: "Testing honeycomb: integration-centric for service architectures."
+  - id: "urn:ordin:default:practice-packs:testing:bdd"
+    description: "Behaviour-driven development: Gherkin scenarios as the test spine."
+  # — architecture (optional)
+  - id: "urn:ordin:default:practice-packs:architecture:hexagonal"
+    description: "Hexagonal / ports-and-adapters: a domain core that depends on nothing."
+  - id: "urn:ordin:default:practice-packs:architecture:modular-monolith"
+    description: "Modular monolith: bounded modules in one deployable."
+  - id: "urn:ordin:default:practice-packs:architecture:event-driven"
+    description: "Event-driven: components communicate via events."
+  - id: "urn:ordin:default:practice-packs:architecture:cqrs-event-sourcing"
+    description: "CQRS + event sourcing: separate read/write models over an event log."
+  - id: "urn:ordin:default:practice-packs:architecture:request-response"
+    description: "Request/response: synchronous service interactions."
+  - id: "urn:ordin:default:practice-packs:architecture:pipeline-stream"
+    description: "Pipeline / stream processing: staged data flow."
+  - id: "urn:ordin:default:practice-packs:architecture:saga-orchestration"
+    description: "Saga orchestration: coordinated long-running transactions."
+  - id: "urn:ordin:default:practice-packs:architecture:serverless"
+    description: "Serverless: function-per-handler, managed runtime."
+  # — library (optional; Go ecosystem)
+  - id: "urn:ordin:default:practice-packs:library:go:echo"
+    description: "Echo: Go HTTP framework conventions."
+  - id: "urn:ordin:default:practice-packs:library:go:testcontainers"
+    description: "Testcontainers-Go: real dependencies in integration tests."
+  # — documentation (site generator binding; optional — docsgen stops and asks if absent)
+  - id: "urn:ordin:default:practice-packs:documentation:mkdocs-material"
+    description: "MkDocs Material: site layout, navigation, callouts, Mermaid fences and the strict build command."
+# requiredPracticePacks: a conjunctive list of (cardinality,
+# selector) rules. The install fails closed unless EVERY rule is satisfied. By
+# CLASS rather than by enumerated id: the user must pick at least one stack pack
+# (an engine binding for codegen / testgen / schemagen) AND at least one testing
+# pack (a strategy for the quality skills) — without dictating which.
+requiredPracticePacks:
+  - atLeast: 1
+    where:
+      class: stack
+  - atLeast: 1
+    where:
+      class: testing
+# Ordin asks the person, when the agent is installed, which stack pack and which testing pack to use.
+fixedPracticePacks:
+  - ask: {class: stack}
+  - ask: {class: testing}
+
+toolPermissions:
+  inheritedFrom: capabilities
+  workspaceOverrides:
+    # The safety floor lives here once: no capability or skill tool binding redeclares it, and
+    # no capability can opt back in. Each entry is a command in ordin's form, `program.subcommand`
+    # (`git.commit` is `git commit`, `gh.pr` is every `gh pr ...`), or a tool name; ordin refuses
+    # any other form. Applying a migration to a shared database has no single command to name: the
+    # patch-mode and execute-mode rules and the sql-safety layer rule keep it a person's action.
+    prohibited:
+      - git.commit
+      - git.push
+      - git.tag
+      - git.merge
+      - gh.pr
+      - gh.release
+      - npm.publish
+      - cargo.publish
+      - production.query
+      - secrets.read
+
+outputFormats:
+  default: markdown
+  structuredArtefacts:
+    - design-document       # docs/design/<topic>.md
+    - spec-set              # docs/spec/phase-{1..6}.md
+    - component-spec        # within phase-3 or docs/spec/components/<name>.md
+    - runbook               # docs/runbooks/<target>.md
+    - rfc                   # docs/wip/rfc/<NN>-<slug>.md  (transient)
+    - rca                   # docs/wip/rca/<NN>-<slug>.md  (transient; only when long/complex)
+    - plan                  # docs/wip/plan/<NN>-<slug>.md (transient)
+    - changelog-fragment    # release-notes draft
+    - documentation-site    # the pack-declared site root, plus its navigation block
+
+governanceMetadata:
+  reviewCadence: quarterly
+  classification: internal
+  brandOverlays: []
+  jurisdictionOverlays: []
+  languageOverlays:        # exactly one may be active; default en-GB applies if none installed
+    available:
+      - "urn:ordin:default:overlays:language:en-GB"
+      - "urn:ordin:default:overlays:language:en-US"
+      - "urn:ordin:default:overlays:language:fr"
+      - "urn:ordin:default:overlays:language:es"
+    default: "urn:ordin:default:overlays:language:en-GB"
+  styleOverlays:           # writing register; exactly one may be active; 'standard' (unchanged prose) applies if none installed
+    available:
+      - "urn:ordin:default:overlays:style:plain-language"
+      - "urn:ordin:default:overlays:style:teaching"
+      - "urn:ordin:default:overlays:style:exec-brief"
+      - "urn:ordin:default:overlays:style:concise"
+      - "urn:ordin:default:overlays:style:regulatory-precise"
+    default: ""            # no forced register — 'standard' applies when none is selected
+  sourceWorkflowOverlays:  # source-repo workflow; exactly one may be active; none imposed by default — cspa-431 prohibits git mutations, so the axis is optional here
+    available:
+      - "urn:ordin:default:overlays:source-workflow:trunk-based"
+      - "urn:ordin:default:overlays:source-workflow:github-flow"
+      - "urn:ordin:default:overlays:source-workflow:gitflow"
+      - "urn:ordin:default:overlays:source-workflow:feature-branching"
+      - "urn:ordin:default:overlays:source-workflow:release-branching"
+    default: ""            # no forced strategy — built-in git guidance applies when none is selected
+  publishGate: "urn:ordin:default:evals"  # publish requires the eval suite to pass
+
+invariants:
+  - "LLM independence; no Capability or Skill names a specific model."
+  - "Exactly one operating mode active at a time."
+  - "Every mutation is proposed, not executed."
+  - "Verification gates are not advisory."

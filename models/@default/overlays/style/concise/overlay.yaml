@@ -1,0 +1,15 @@
+apiVersion: ai.enterprise/v1
+kind: style-overlay
+
+metadata:
+  id: "urn:ordin:default:overlays:style:concise"
+  name: Concise
+  version: 1.0.0
+  owner: gatblau
+  description: "Sets a concise writing style: terse and to the point, for expert readers who want signal over explanation."
+
+style: concise   # register tag — see urn:ordin:default:rules:layer:output-style
+
+addRules:
+  - "urn:ordin:default:overlays:style:concise:set-style"
+  - "urn:ordin:default:rules:layer:output-style"

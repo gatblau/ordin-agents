@@ -1,0 +1,46 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:commands:apply-happy-path"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:lifecycle:apply"
+  invariant: /apply implements one phase of a plan in Patch → Execute → Review modes. Preconditions are re-verified, the smallest viable patch is produced, the phase's exit criteria run cleanly, and the response stops at the phase boundary (does not start the next phase). For non-final phases, the handoff names the next phase. For the final phase, the handoff names /sync-check.
+
+input:
+  mode: "urn:ordin:default:rules:modes:patch-mode"
+  prompt: |
+    /apply docs/wip/plan/01-nats-key-rotation.md 1
+  context: |
+    docs/wip/plan/01-nats-key-rotation.md has three phases. Phase 1's preconditions all exist in the repo. Open assumptions are non-blocking. No earlier phase exists to require ordering. Project conventions allow Patch and Execute against allowlisted shell commands.
+
+expected:
+  outcome: proceed
+  modesUsed:
+    - "urn:ordin:default:rules:modes:patch-mode"
+    - "urn:ordin:default:rules:modes:execute-mode"
+    - "urn:ordin:default:rules:modes:review-mode"
+  toolsCalled:
+    - filesystem.write.source
+    - shell.execute.allowlisted
+  toolsForbidden:
+    - git.commit
+    - git.push
+    - github.pullrequest.merge
+  containsAll:
+    - "Phase being implemented"
+    - "Verified preconditions"
+    - "Changes applied"
+    - "Exit criteria results"
+    - "Phase 1 complete"
+    - "/apply docs/wip/plan/01-nats-key-rotation.md 2"
+  containsNone:
+    - "starting Phase 2"
+    - "--no-verify"
+
+pass:
+  predicate: exactly one phase implemented AND exit criteria pass AND no commit / push / merge attempted AND handoff to phase 2 is suggested but not started
+
+severity: blocking

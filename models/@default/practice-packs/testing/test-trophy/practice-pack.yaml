@@ -1,0 +1,100 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+
+metadata:
+  id: "urn:ordin:default:practice-packs:testing:test-trophy"
+  name: Test trophy
+  version: 1.0.0
+  owner: gatblau
+  # pack class lets a profile require "≥1 testing pack" by class.
+  class: testing
+  # Descriptive metadata.
+  description: "Test trophy: static checks as the floor, a heavy integration band as the main confidence layer, fewer unit tests, few end-to-end. Names no language."
+  category: sdlc
+  audience:
+    roles:
+      - developer
+      - architect
+    domains:
+      - backend-services
+  useCases:
+    - title: Integration-weighted test suite
+      summary: Supply the static-floor + integration-primary taxonomy to testgen/codegen, realised in the active stack pack's idiom.
+
+description: >
+  Test-approach practice carrying the Test Trophy strategy: static analysis (types
+  and lint) is the non-negotiable floor, a heavy integration band is the primary
+  confidence layer, isolated unit tests target complex pure logic only, and
+  end-to-end tests are few. Carries the test-shape only — the *strategy* slice of
+  testingPatterns. It names no language, runner, or container library: the
+  concrete static-analysis, test, and container tooling are the active stack
+  pack's idiom, referred to abstractly. Consumed by the cspa workspace's testgen
+  and codegen skills via "active Practice Pack" indirection; composes with any
+  stack pack.
+
+
+appliesTo:
+  workspaces:
+    - "urn:ordin:default:workspaces:cspa-431@^1.0.0"
+
+# Strategy slice of testingPatterns (the WHAT). The static-analysis and test
+# runner tools are the active stack pack's; the container tools are the active
+# library pack's. This pack names no tool.
+testingPatterns:
+  shape: trophy                  # static floor · some unit · heavy integration · few e2e
+  levels:
+    - static
+    - unit
+    - integration
+    - e2e
+  coveragePhilosophy: >
+    The integration band is the primary confidence layer. Static analysis (the
+    active stack pack's type-check and lint) is the non-negotiable floor — it
+    must be clean before tests run. Unit tests target complex pure logic only,
+    not glue. e2e is kept minimal.
+  boundaryRule: >
+    Integration on each boundary-crossing function, backed by a real
+    (containerised) dependency, weighted as the primary suite (not a thin band
+    above the unit tests). No mocking a containerisable service.
+  scenarioStyle: xunit
+
+skillActivations:
+  - skill: testgen
+    when: "test directories or boundary-crossing functions are in scope"
+
+antiPatterns:
+  - id: over-investing-in-isolated-unit-tests-of-glue
+    reason: "Unit-testing wiring and glue inflates the suite without confidence; the integration band is where confidence lives in this shape."
+  - id: mocking-a-containerisable-dependency
+    reason: "Mocks drift from production; the integration band — the primary layer here — requires a real dependency."
+  - id: skipping-the-static-floor
+    reason: "Type-check and lint are the cheapest defect catch and the non-negotiable floor; tests do not substitute for them."
+
+references:
+  - strategy.md        # the trophy shape and why integration is primary
+  - levels.md          # what each band covers; static as the floor
+  - anti-patterns.md   # the shape failures to avoid
+
+contextLoading:
+  eager:
+    - strategy.md
+    - anti-patterns.md
+  lazy:
+    - levels.md
+
+conflictResolution:
+  # Above a stack pack on the testingPatterns seam only on an unavoidable overlap
+  # (default: none). Below an architecture pack.
+  overridePriority: 30
+
+governance:
+  riskTier: 2
+  approval:
+    requiredFrom:
+      - gatblau
+  reviewDate: 2026-01-31
+
+# Composition with overlays:
+# - Brand/jurisdiction overlays may STRENGTHEN this strategy (mandate stricter
+#   static analysis, raise the integration floor); they may not weaken safety-
+#   relevant claims. This pack names no language; language overlays govern prose.

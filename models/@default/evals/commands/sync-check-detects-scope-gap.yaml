@@ -1,0 +1,40 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:commands:sync-check-detects-scope-gap"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:sync:sync-check"
+  invariant: /sync-check correctly labels SCOPE-GAP findings — artefacts that exist in one layer with no counterpart elsewhere. Resolution requires human triage; no automated patch is proposed. The three resolution options must be surfaced (add the counterpart, delete the orphan, mark intentional in the Spec preamble's Assumptions Register).
+
+input:
+  mode: "urn:ordin:default:rules:modes:observe-mode"
+  prompt: |
+    /sync-check
+  context: |
+    A package `internal/billing/refund/` exists in the source tree with full implementation and tests. No design or spec mentions refund. This is a SCOPE-GAP — code exists in only one layer.
+
+expected:
+  outcome: proceed
+  containsAll:
+    - "SCOPE-GAP"
+    - "internal/billing/refund"
+    - "no counterpart"
+    - "human triage"
+    - "add"
+    - "delete"
+    - "mark"            # the three resolution options
+    - "Assumptions Register"
+  drift:
+    scopeGap: ">=1"
+  verdict: dirty
+  toolsForbidden:
+    - filesystem.write.source
+    - filesystem.write.spec-only
+
+pass:
+  predicate: response contains the SCOPE-GAP finding AND surfaces all three resolution options AND does not auto-fix AND verdict is "dirty"
+
+severity: blocking

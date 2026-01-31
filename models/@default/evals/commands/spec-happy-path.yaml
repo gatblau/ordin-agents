@@ -1,0 +1,42 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:commands:spec-happy-path"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:lifecycle:spec"
+  invariant: /spec produces the six-phase LLD spec set (analysis, architecture, components, cross-cutting, playbook, audit) from an HLD. Every Phase 3 / Phase 4 / Preamble spec carries a derivedFromHld preamble matching the HLD's current revision. Each phase runs an HLD-impact-pass that surfaces HLD-shaped findings in a combined review block; if accepted, the HLD is amended and its revision bumps. Phase 6 audit passes. The handoff line names /breakdown with the Generation Playbook path.
+
+input:
+  mode: "urn:ordin:default:rules:modes:plan-mode"
+  prompt: |
+    /spec docs/design/nats-key-rotation/
+  context: |
+    docs/design/nats-key-rotation/ exists as a folder-form HLD (Standard lane) with README.md (revision: 0.1.0), 00-overview.md … 10-risks.md, and 99-changelog.md. The HLD has a populated domain model, system architecture, principal sequences, tech stack, cross-cutting stance, and zero blocking open questions. docs/spec/ is empty. Repository declares Go + NATS JetStream + Postgres.
+
+expected:
+  outcome: proceed
+  containsAll:
+    - "phase-1-analysis.md"
+    - "phase-2-architecture.md"
+    - "phase-3-components.md"
+    - "phase-4-cross-cutting.md"
+    - "phase-5-playbook.md"
+    - "phase-6-audit.md"
+    - "derivedFromHld:"
+    - "Phase 6 audit"
+    - "passed"
+    - "/breakdown docs/spec/phase-5-playbook.md"
+  containsNone:
+    - "blocking"        # no blocking open question should remain
+    - "// SPEC-GAP"     # gaps must be empty before /breakdown
+  phase6Audit: passed
+  handoff: /breakdown docs/spec/phase-5-playbook.md
+
+pass:
+  predicate: >-
+    all six phase files written AND every Phase 3 / Phase 4 / Preamble spec carries a derivedFromHld field equal to the HLD's current revision AND Phase 6 audit reports passed AND the /breakdown handoff line is emitted AND no blocking open questions remain AND if the HLD-impact-pass produced any candidate edits during the run, they were either approved (HLD amended, revision bumped, 99-changelog.md appended) or rejected (demoted to spec-local Assumptions with confidence: reduced)
+
+severity: blocking

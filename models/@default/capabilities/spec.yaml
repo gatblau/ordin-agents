@@ -1,0 +1,56 @@
+apiVersion: ai.enterprise/v1
+kind: capability
+metadata:
+  id: "urn:ordin:default:capabilities:spec"
+  name: Spec capability
+  description: "Turns an approved design or RFC into the six-part specification set, gated by a blocking self-check."
+  version: 1.1.0
+  owner: gatblau
+
+purpose: >
+  Turn an approved design document (greenfield) or RFC / intent-changing
+  RCA outcome (change / incident) into the six-phase spec set
+  (Analysis, Architecture, Components, Cross-cutting, Playbook,
+  Self-audit). Phase 6 self-audit is the blocking promotion gate.
+  This is *move 2 (Structure intent)* of the four-move CSPA loop.
+
+composedOf:
+  skills:
+    - "urn:ordin:default:skills:quality:specgen"
+  commands:
+    - "urn:ordin:default:commands:lifecycle:spec"            # move 2 — structure intent
+  modes:
+    - "urn:ordin:default:rules:modes:observe-mode"
+    - "urn:ordin:default:rules:modes:infer-mode"
+    - "urn:ordin:default:rules:modes:plan-mode"
+    - "urn:ordin:default:rules:modes:review-mode"
+    - "urn:ordin:default:rules:modes:explain-mode"
+    - "urn:ordin:default:rules:modes:escalate-mode"
+  rules:
+    - "urn:ordin:default:rules:orchestrators:working-modes"
+    - "urn:ordin:default:rules:layer:identifier-verification"
+    - "urn:ordin:default:rules:layer:spec-anchors"  # assertion ids are the anchors code will cite
+
+defaultToolPolicy:
+  allowed: []
+  requiresHumanApproval: []
+  prohibited:
+    - filesystem.write.source
+  # Universal safety floor (git/PR/publish/migration mutations) is asserted once
+  # at the workspace level; not redeclared here.
+
+outputs:
+  - docs/spec/phase-1-analysis.md
+  - docs/spec/phase-2-architecture.md
+  - docs/spec/phase-3-components.md
+  - docs/spec/phase-4-cross-cutting.md
+  - docs/spec/phase-5-playbook.md
+  - docs/spec/phase-6-audit.md
+
+verificationGates:
+  - name: phase-6-self-audit
+    blocks: promotion-from-draft-to-approved
+    failureBehaviour: stop-with-failing-items
+  - name: gaps-non-empty
+    blocks: codegen-consumption
+    failureBehaviour: stop-and-route-to-open-questions

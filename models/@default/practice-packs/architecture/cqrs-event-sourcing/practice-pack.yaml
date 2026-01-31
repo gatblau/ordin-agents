@@ -1,0 +1,215 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+
+metadata:
+  id: "urn:ordin:default:practice-packs:architecture:cqrs-event-sourcing"
+  name: CQRS and event sourcing
+  version: 1.0.0
+  # Architecture-team owned — NOT the workspace owner (README ownership boundary).
+  owner: architecture-guild
+  # Descriptive metadata.
+  description: "CQRS with event sourcing: a write side where changes are stored as an event log, and a read side rebuilt from those events. Names no language or store."
+  category: sdlc
+  # pack class lets a profile require "≥1 architecture pack" by class.
+  class: architecture
+  # roles/domains only — NO `languages` (the language pairing is the Workspace
+  # Profile's, never an architecture pack's). Roles drawn from the controlled
+  # vocabulary (acetypes.AudienceRoles): developer, architect.
+  audience:
+    roles:
+      - developer
+      - architect
+    domains:
+      - backend-services
+  useCases:
+    - title: Command/query split with an event-sourced write side
+      summary: Supply the CQRS write/read reference architecture, the event-store and projection design patterns, and the command/query interface conventions to the workspace's codegen/designgen skills; the concrete event store and language are the stack pack's and the Workspace Profile's.
+
+description: >
+  CQRS + event-sourcing reference architecture. The write side accepts commands,
+  loads an aggregate by replaying its events, applies optimistic concurrency by
+  version, and appends new immutable events to an append-only store. The read side
+  is built from disposable projections that consume the event stream and can be
+  rebuilt from zero. Carries the command/query split, the event-store and
+  projection patterns (append-only store, projection rebuild, snapshotting,
+  upcasting), the stream-naming and checkpoint conventions, the projection-consumer
+  ack/checkpoint/replay practice against an ABSTRACT store/stream client, the
+  required observability signals, and the architectural anti-patterns. It names no
+  language, framework or store product: "the event store" is referred to abstractly,
+  so this pack composes with any stack pack that supplies a concrete client. It is
+  standalone — it does not import the Event-Driven pack's items (HLD OQ-3 default).
+  Consumed by the cspa workspace's codegen, designgen and runbookgen skills via
+  "active Practice Pack" indirection; the language pairing is declared by the
+  Workspace Profile, not here.
+
+appliesTo:
+  workspaces:
+    - "urn:ordin:default:workspaces:cspa-431@^1.0.0"
+
+# ---- architecture-side items (this family writes these; no stack-side item) ----
+
+# Write side (aggregates → event store) and read side (projections → query
+# models), a language-neutral service template, and the binding ADRs. Bodies live
+# in the cited reference files.
+referenceArchitecture:
+  diagrams:
+    - reference-architecture/topology.md
+  serviceTemplate: reference-architecture/service-template.md
+  adrs:
+    - id: events-immutable
+      statement: A stored event is an immutable historical fact; it is never edited or deleted in place. Corrections are made by appending a new compensating event.
+    - id: read-models-disposable
+      statement: A read model is a disposable projection of the event stream; it carries no authority and can be dropped and rebuilt from zero at any time.
+    - id: eventual-consistency-between-sides
+      statement: The write side and the read side are eventually consistent; a projection lags the event store by its processing latency, and clients must tolerate that lag.
+
+# Each entry carries a `when` predicate so it applies conditionally
+# (PACK_PATTERN_NO_WHEN clears). Bodies are the cited reference files.
+designPatterns:
+  required:
+    - id: aggregate-command-handler
+      ref: patterns/aggregate-command-handler.md
+      when: "a command mutates an aggregate"
+    - id: event-store-append-only
+      ref: patterns/event-store.md
+      when: "state changes are persisted as events"
+    - id: optimistic-concurrency-by-version
+      ref: patterns/event-store.md
+      when: "concurrent commands target one aggregate"
+  recommended:
+    - id: projection-rebuild
+      ref: patterns/projection-rebuild.md
+      when: "a read model's shape changes or it is corrupted and must be regenerated from the event stream"
+    - id: snapshotting
+      ref: patterns/snapshotting.md
+      when: "an aggregate's event count makes replaying from zero on every load too slow"
+    - id: event-upcasting
+      ref: events/upcasting.md
+      when: "an event schema evolves and old-version events remain in the store"
+  prohibited:
+    - id: query-the-write-side
+      reason: "reads must go through projections; the write side is command-only and exposes no query path"
+    - id: mutate-a-stored-event
+      reason: "a stored event is an immutable fact; editing it rewrites history and breaks every projection's reproducibility"
+
+# Shape contracts, abstract — not a wire schema. Body: events/stream-naming.md,
+# events/upcasting.md.
+interfaceConventions:
+  commands:
+    naming: "<Aggregate><Imperative>  (e.g. AccountOpen, OrderCancel)"
+    handledBy: write-side-aggregate-command-handler
+  queries:
+    naming: "<ReadModel><Question>  (e.g. AccountBalanceGet, OrderSummaryList)"
+    servedBy: read-side-projection
+  events:
+    streamNaming: "<aggregate>-<id>"
+    schemaEvolution: upcaster-on-read
+    projectionCheckpoint: "(stream-position, projection-id) committed atomically with the projection write"
+    ref: events/stream-naming.md
+
+# Against an ABSTRACT store/stream client (no product named). Body:
+# broker/projection-consumer.md.
+brokerClientPractice:
+  consumerPattern: durable-checkpointed-stream
+  ackPolicy: checkpoint-after-projection-commit
+  checkpointGranularity: per-projection-stream-position
+  replayPolicy: replay-from-zero-on-rebuild
+  startPosition: configurable-from-zero-or-last-checkpoint
+  maxInFlight: bounded
+  redeliveryBackoff: exponential
+  ref: broker/projection-consumer.md
+
+# ARCHITECTURAL libraries only, named abstractly. The logger/driver/test
+# framework are the stack pack's separate list (disjoint seam).
+approvedLibraries:
+  required:
+    - name: "an event-store client abstraction"
+      reason: "the abstract append-only stream/store; the concrete client (driver, serialisation, registry) is the stack pack's"
+  blocked: []
+
+# The WHAT only (required signals). The HOW (logging library, field mechanics)
+# is the stack pack's slice of this seam. Body: observability/required-signals.md.
+observabilityConventions:
+  metrics:
+    requiredCounters:
+      - events_appended_total
+      - projection_lag
+      - projection_rebuild_seconds
+  spanAttributes:
+    - aggregate.type
+    - aggregate.version
+  requiredLogFields:
+    - trace_id
+    - tenant_id
+    - aggregate_id
+  ref: observability/required-signals.md
+
+# Keyed on ARCHITECTURAL artefacts, never **/*.go (that is the stack pack's).
+skillActivations:
+  - skill: codegen
+    when: "files matching **/aggregates/**, **/projections/** or **/events/** are in scope"
+  - skill: designgen
+    when: "files matching **/aggregates/** or **/projections/** are in scope"
+
+antiPatterns:
+  - id: query-the-write-side
+    reason: "reading through the aggregate/event store instead of a projection couples query load to the write side and bypasses the read model the architecture exists to provide"
+  - id: mutate-stored-event
+    reason: "editing or deleting a stored event rewrites history; corrections are appended as new events, never applied in place"
+  - id: read-model-treated-as-authoritative
+    reason: "a projection is a derived, eventually-consistent view; treating it as the source of truth lets stale or rebuilt data override the event store"
+  - id: missing-concurrency-version-check
+    reason: "appending without asserting the expected aggregate version lets concurrent commands silently overwrite each other's events"
+
+references:
+  - principles.md
+  - anti-patterns.md
+  - patterns/aggregate-command-handler.md
+  - patterns/event-store.md
+  - patterns/projection-rebuild.md
+  - patterns/snapshotting.md
+  - events/stream-naming.md
+  - events/upcasting.md
+  - broker/projection-consumer.md
+  - observability/required-signals.md
+  - reference-architecture/topology.md
+  - reference-architecture/service-template.md
+
+contextLoading:
+  # Keep the eager set small to avoid context-window flooding (HLD NFR).
+  eager:
+    - principles.md
+    - anti-patterns.md
+  lazy:
+    - patterns/aggregate-command-handler.md
+    - patterns/event-store.md
+    - patterns/projection-rebuild.md
+    - patterns/snapshotting.md
+    - events/stream-naming.md
+    - events/upcasting.md
+    - broker/projection-consumer.md
+    - observability/required-signals.md
+    - reference-architecture/topology.md
+    - reference-architecture/service-template.md
+
+conflictResolution:
+  # Above a stack pack ONLY on an unavoidable overlap (default: no overlap, so
+  # this never fires for a well-allocated stack pack). Architecture outranks
+  # stack on the rare genuine clash (README §"two seams").
+  overridePriority: 50
+
+governance:
+  riskTier: 2
+  approval:
+    requiredFrom:
+      - architecture-guild
+  # observabilityConventions signal set is authored as proposed and flagged for
+  # platform/observability-team ratification at this review (Phase 1 OQ-3).
+  reviewDate: 2026-01-31
+
+# Composition with overlays:
+# - Brand/jurisdiction overlays may STRENGTHEN this pack (block a library,
+#   tighten schema-evolution, mandate an extra required signal); they may not
+#   weaken safety-relevant claims (event immutability, optimistic concurrency,
+#   projection rebuildability).
+# - This pack names no language; language overlays govern prose only.

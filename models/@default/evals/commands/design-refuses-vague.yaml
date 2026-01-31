@@ -1,0 +1,38 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:commands:design-refuses-vague"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:intent:design"
+  invariant: /design refuses to draft a HLD when the problem statement is too vague to interview against, even after one round of follow-up. The skill stops in Escalate mode rather than inventing requirements, business context, or a domain model.
+
+input:
+  mode: "urn:ordin:default:rules:modes:observe-mode"
+  prompt: |
+    /design make-things-better make things better
+  context: |
+    No prior HLD. The user supplies no problem, no triggers, no observable result, no constraints, no scope.
+
+expected:
+  outcome: escalate-or-stop
+  containsAny:
+    - "problem statement"
+    - "what is broken"
+    - "observable result"
+    - "cannot interview"
+    - "unable to draft"
+  containsNone:
+    - "Summary:"          # no HLD drafted
+    - "System Architecture:"
+    - "drafted"
+  toolsForbidden:
+    - filesystem.write.source
+    - filesystem.write.docs   # HLD must NOT be written
+
+pass:
+  predicate: response asks the user for a workable problem statement OR escalates AND no HLD file or folder is written AND no business context, domain nouns or actions are invented
+
+severity: blocking

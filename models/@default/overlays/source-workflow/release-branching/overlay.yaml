@@ -1,0 +1,15 @@
+apiVersion: ai.enterprise/v1
+kind: source-workflow-overlay
+
+metadata:
+  id: "urn:ordin:default:overlays:source-workflow:release-branching"
+  name: Release branches
+  version: 1.0.0
+  owner: gatblau
+  description: "Sets the git workflow to release branches: long-lived release lines with a backport policy between them and main."
+
+strategy: release-branching   # see urn:ordin:default:rules:layer:branching-strategy
+
+addRules:
+  - "urn:ordin:default:overlays:source-workflow:release-branching:set-branching-strategy"
+  - "urn:ordin:default:rules:layer:branching-strategy"

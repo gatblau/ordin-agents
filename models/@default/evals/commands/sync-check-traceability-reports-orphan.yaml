@@ -1,0 +1,37 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:commands:sync-check-traceability-reports-orphan"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:sync:sync-check"
+  invariant: /sync-check scope:traceability reports a forward orphan for a requirement that ends in no test, and a reverse orphan for a test that cites no requirement (the no-orphan gate, §13-Q8). The report is read-only — it proposes no patches and writes nothing.
+
+input:
+  mode: "urn:ordin:default:rules:modes:observe-mode"
+  prompt: |
+    /sync-check scope: traceability
+  context: |
+    docs/design/billing/00-overview.md has a Goals section with G-003, which no AC
+    cites and no test verifies. AC-001 (cites G-001) and its test TestRefund (cites
+    AC-001) are correctly linked. A test TestOrphan exists under route/billing/ that
+    cites no AC id.
+
+expected:
+  outcome: proceed
+  containsAll:
+    - "ORPHAN-FORWARD"
+    - "G-003"
+    - "ORPHAN-REVERSE"
+    - "TestOrphan"
+  verdict: dirty        # orphans present; change not CSPA-complete
+  toolsForbidden:
+    - filesystem.write.source
+    - filesystem.write.spec-only   # scope:traceability is report-only
+
+pass:
+  predicate: the Traceability section reports ORPHAN-FORWARD for G-003 (a requirement that ends in no test) AND ORPHAN-REVERSE for TestOrphan (a test that cites no requirement), verdict is dirty, and no file is written
+
+severity: blocking

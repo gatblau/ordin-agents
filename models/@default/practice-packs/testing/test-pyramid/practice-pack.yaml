@@ -1,0 +1,99 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+
+metadata:
+  id: "urn:ordin:default:practice-packs:testing:test-pyramid"
+  name: Test pyramid
+  version: 1.0.0
+  owner: gatblau
+  # pack class lets a profile require "≥1 testing pack" by class.
+  class: testing
+  # Descriptive metadata.
+  description: "Test pyramid: many unit tests, fewer integration, few end-to-end, with unit coverage as the main gate. Names no language."
+  category: sdlc
+  audience:
+    roles:
+      - developer
+      - architect
+    domains:
+      - backend-services
+  useCases:
+    - title: Pyramid-shaped test suite
+      summary: Supply the test-level taxonomy + boundary rule to the workspace's testgen/codegen skills, realised in the active stack pack's idiom.
+
+description: >
+  Test-approach practice carrying the Test Pyramid strategy: many unit tests, a
+  smaller integration band, and few end-to-end tests, with unit coverage as the
+  primary gate and an integration test on every boundary-crossing function backed
+  by a real (containerised) dependency. Carries the test-shape only — the
+  *strategy* slice of testingPatterns. It names no language, runner, or container
+  library: the concrete runner and container tooling are the active library
+  pack's idiom, referred to abstractly. Consumed by the cspa workspace's testgen
+  and codegen skills via "active Practice Pack" indirection; composes with any
+  stack + library pack.
+
+
+appliesTo:
+  workspaces:
+    - "urn:ordin:default:workspaces:cspa-431@^1.0.0"
+
+# Strategy slice of testingPatterns (the WHAT). The runner and container tooling
+# are the active library pack's idiom; file naming is the active stack pack's
+# layout. This pack names no tool.
+testingPatterns:
+  shape: pyramid                 # many unit · some integration · few e2e
+  levels:
+    - unit
+    - integration
+    - e2e
+  coveragePhilosophy: >
+    Unit coverage is the primary gate (the workspace's ≥70% threshold applies to
+    the unit run). Integration and e2e add confidence, not coverage numbers.
+  boundaryRule: >
+    One happy-path and one error-path integration test per boundary-crossing
+    function (database, message bus, blob store, external API, peripheral),
+    backed by a real (containerised) dependency. No mocking a containerisable
+    service.
+  scenarioStyle: xunit           # table-driven assertions, not Gherkin
+
+skillActivations:
+  - skill: testgen
+    when: "test directories or boundary-crossing functions are in scope"
+
+antiPatterns:
+  - id: inverted-ice-cream-cone
+    reason: "More e2e than unit tests inverts the pyramid — slow, flaky, expensive feedback."
+  - id: mocking-a-containerisable-dependency
+    reason: "Mocks drift from production behaviour; the boundary rule requires a real dependency."
+  - id: asserting-on-implementation-detail
+    reason: "Tests coupled to internals break on refactor; assert on behaviour."
+
+references:
+  - strategy.md        # the shape, proportion, and where coverage is enforced
+  - levels.md          # what each test level covers and where it runs
+  - anti-patterns.md   # the shape failures to avoid
+
+contextLoading:
+  eager:
+    - strategy.md
+    - anti-patterns.md
+  lazy:
+    - levels.md
+
+conflictResolution:
+  # Above a stack pack on the testingPatterns seam only on an unavoidable overlap
+  # (default: none — the stack pack writes the idiom slice, this pack the strategy
+  # slice). Below an architecture pack.
+  overridePriority: 30
+
+governance:
+  riskTier: 2
+  approval:
+    requiredFrom:
+      - gatblau
+  reviewDate: 2026-01-31
+
+# Composition with overlays:
+# - Brand/jurisdiction overlays may STRENGTHEN this strategy (raise the coverage
+#   floor, mandate an extra scenario class); they may not weaken safety-relevant
+#   claims. This pack names no language; language overlays govern only prose.

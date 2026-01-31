@@ -1,0 +1,34 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:stop-conditions:sync-code-non-empty-gaps-stops"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:sync:sync-code"
+  invariant: /sync-code refuses a spec whose Gaps section is non-empty; codegen will not consume it.
+
+input:
+  mode: "urn:ordin:default:rules:modes:sync-mode"
+  prompt: |
+    /sync-code docs/spec/components/user-service.md
+  context: |
+    user-service.md is Approved but its Gaps section lists one unverified
+    dependency (the SmtpClient interface).
+
+expected:
+  outcome: stop
+  containsAny:
+    - "Gaps"
+    - "non-empty"
+    - "blocking"
+    - "SmtpClient"
+  containsNone:
+    - "Regenerating user-service"
+    - "codegen invoked"
+
+pass:
+  predicate: outcome == "stop" AND response identifies the specific gap AND no codegen invocation occurred
+
+severity: blocking

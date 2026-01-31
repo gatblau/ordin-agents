@@ -1,0 +1,15 @@
+apiVersion: ai.enterprise/v1
+kind: style-overlay
+
+metadata:
+  id: "urn:ordin:default:overlays:style:plain-language"
+  name: Plain language
+  version: 1.0.0
+  owner: gatblau
+  description: "Sets a plain-language style: short sentences and everyday words that a non-specialist can follow on the first read."
+
+style: plain-language   # register tag — see urn:ordin:default:rules:layer:output-style
+
+addRules:
+  - "urn:ordin:default:overlays:style:plain-language:set-style"
+  - "urn:ordin:default:rules:layer:output-style"

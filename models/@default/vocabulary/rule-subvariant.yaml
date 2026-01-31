@@ -1,0 +1,27 @@
+apiVersion: ai.enterprise/v1
+kind: vocabulary
+metadata:
+  id: "urn:ordin:default:vocabulary:rule-subvariant"
+  name: Rule sub-variant vocabulary
+  version: 1.0.0
+  owner: gatblau
+# The controlled vocabulary of authored `kind:` rule sub-variant
+# aliases that collapse onto KindRule. Each `code` is an authored manifest `kind:`
+# string. Adding a rule sub-variant is authoring a term here — no Go edit
+# (replaces the hardcoded rule-layer/rule-orchestrator entries of
+# nonOverlayCanonicalKinds).
+#
+# `control-loop` was a term here until it was promoted to its own
+# kind. It is WITHDRAWN rather than kept as a harmless alias: the spelling now
+# resolves through types.CanonicalArtefactKind, which authoringcheck.Resolve-
+# ArtefactKind consults BEFORE falling back to this vocabulary, so a term left
+# here would be a second, unreachable authority over the same string — and the
+# next reader would have no way to tell which one the platform obeys.
+axis: rule-subvariant
+terms:
+  - code: rule-layer
+    label: Layer rule
+    description: A constraint that composes on top of any operating mode (e.g. identifier-verification).
+  - code: rule-orchestrator
+    label: Orchestrator rule
+    description: An import manifest that pulls operating modes and layer rules into context (working-modes).

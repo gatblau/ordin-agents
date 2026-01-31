@@ -1,0 +1,59 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:commands:design-code-evidence-happy-path"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:intent:design"
+  invariant: /design in code-evidence mode produces a High-Level Design (HLD) with the Mode banner declaring code-evidence, every body claim carrying an evidence tag or a Gaps entry, the Requirements section present with all four mandatory subsections, no entry in Must preserve without a witness, and no identifier appearing in the document that is not visible in the cited evidence.
+
+input:
+  mode: "urn:ordin:default:rules:modes:observe-mode"
+  prompt: |
+    /design legacy-payment-service mode: code-evidence code-paths: internal/payment, cmd/payment-server
+  context: |
+    Empty docs/design/ directory. No prior HLD for this topic. Triage lane: Local (single component, no public-surface changes implied yet) — single-file HLD form.
+    The repository contains:
+      - internal/payment/processor.go — defines ProcessPayment(ctx, req) (Receipt, error); calls a payment-provider client; writes a row to payments table; emits a NATS message on payments.received.
+      - internal/payment/repository.go — Postgres queries against payments table (id, amount_minor_units, currency, created_at, status).
+      - cmd/payment-server/main.go — starts an HTTP server on :8080 with one route POST /payments.
+      - internal/payment/processor_test.go — one passing test asserting ProcessPayment returns ErrInsufficientFunds when the payment provider returns 402.
+    No tests cover the NATS emission or the database write. The payment-provider client wrapper is a thin shim with no tests. There is no design or spec document anywhere in the repo.
+
+expected:
+  outcome: proceed
+  containsAll:
+    - "Mode: code-evidence"
+    - "Generated from: code paths"
+    - "internal/payment"
+    - "cmd/payment-server"
+    - "## Requirements"
+    - "### Must preserve"
+    - "### Observed but not required"
+    - "### Drop candidates"
+    - "### Gaps"
+    - "[evidence:"
+    - "ErrInsufficientFunds"           # has a passing test → may be Must preserve
+    - "docs/design/legacy-payment-service.md"
+  containsNone:
+    - "// TODO"
+    - "fast"
+    - "secure"
+    - "ProcessRefund"                  # not present in the supplied code; must not be invented
+    - "refunds table"                  # not present in the supplied code
+    - "ErrCardDeclined"                # not present in the supplied code
+  artefactProduced: docs/design/legacy-payment-service.md
+  classificationRules:
+    - "ErrInsufficientFunds path is in Must preserve (witness: processor_test.go) OR in Observed but not required with an explicit note that the test was found"
+    - "NATS emission on payments.received is in Observed but not required (no test, no contract cited)"
+    - "Postgres write to payments table is in Observed but not required (no test, no contract cited)"
+    - "No entry sits in Must preserve without a witness column populated"
+    - "No entry sits in Drop candidates in the initial draft (drop list is populated only after a human pass)"
+
+pass:
+  predicate: >-
+    response writes the HLD file AND the Mode banner declares code-evidence with the scanned paths AND a Revision header is present AND every claim in the body carries an [evidence: ...] tag or appears in Gaps AND all four Requirements subsections are present (writing _(none in initial draft)_ when empty) AND no entry is promoted to Must preserve without a witness AND no identifier appears in the HLD that is not visible in the supplied code
+
+severity: blocking

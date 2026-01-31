@@ -1,0 +1,15 @@
+apiVersion: ai.enterprise/v1
+kind: source-workflow-overlay
+
+metadata:
+  id: "urn:ordin:default:overlays:source-workflow:gitflow"
+  name: Git flow
+  version: 1.0.0
+  owner: gatblau
+  description: "Sets the git workflow to git flow: a long-lived develop branch with feature, release, and hotfix branches, and tagged releases on main."
+
+strategy: gitflow   # see urn:ordin:default:rules:layer:branching-strategy
+
+addRules:
+  - "urn:ordin:default:overlays:source-workflow:gitflow:set-branching-strategy"
+  - "urn:ordin:default:rules:layer:branching-strategy"

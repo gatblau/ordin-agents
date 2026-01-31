@@ -1,0 +1,31 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:documentation:docs-refuses-unsatisfied-prerequisite"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:lifecycle:docs"
+  invariant: A page whose prerequisites name a page that has not been emitted is not written; the run stops with DOC_PREREQ_UNSATISFIED, naming both the page and the missing prerequisite, so the ladder can never send a reader forward to an unwritten rung.
+
+input:
+  mode: "urn:ordin:default:rules:modes:plan-mode"
+  prompt: |
+    /docs ./services/payments
+  context: |
+    A documentation pack is installed. The derived ladder is malformed: rung 4 names rung 6 as a prerequisite, which has not yet been emitted at the point rung 4 is checked.
+
+expected:
+  outcome: stop
+  containsAll:
+    - "DOC_PREREQ_UNSATISFIED"
+    - "rung 4"
+    - "rung 6"
+  containsNone:
+    - "written rung 4"
+
+pass:
+  predicate: the page is not written AND the run stops with DOC_PREREQ_UNSATISFIED AND both the page and the missing prerequisite are named
+
+severity: blocking

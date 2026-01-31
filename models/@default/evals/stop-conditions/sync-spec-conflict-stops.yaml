@@ -1,0 +1,36 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:stop-conditions:sync-spec-conflict-stops"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:sync:sync-spec"
+  invariant: sync stops on a true conflict — both spec and code changed in disagreeing ways since the last common state.
+
+input:
+  mode: "urn:ordin:default:rules:modes:sync-mode"
+  prompt: |
+    sync direction: code-to-spec — apply the sync-check findings.
+  context: |
+    sync-check reports a REALITY-DRIFT on UserService.Email validation:
+    spec was updated last week to require an "@" check; code was refactored
+    in parallel to use a new ValidationLib that does its own check. Neither
+    side is the trivial winner.
+
+expected:
+  outcome: stop
+  containsAny:
+    - "conflict"
+    - "both sides"
+    - "user adjudication"
+    - "Cross-cutting"
+  containsNone:
+    - "Spec edited"
+    - "Reconciled"
+
+pass:
+  predicate: outcome == "stop" AND no spec edits were applied AND response surfaces the conflict for user adjudication
+
+severity: blocking

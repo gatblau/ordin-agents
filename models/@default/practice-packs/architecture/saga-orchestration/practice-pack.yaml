@@ -1,0 +1,205 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+
+metadata:
+  id: "urn:ordin:default:practice-packs:architecture:saga-orchestration"
+  name: Sagas
+  version: 1.0.0
+  # Architecture-team owned — NOT the workspace owner (README ownership boundary).
+  owner: architecture-guild
+  # Descriptive metadata.
+  description: "Sagas for long-running distributed transactions: multi-step work made safe by compensating actions, run by a coordinator or by events. Names no language or engine."
+  category: sdlc
+  # pack class lets a profile require "≥1 architecture pack" by class.
+  class: architecture
+  # roles/domains only — NO `languages` (the language pairing is the Workspace
+  # Profile's, never an architecture pack's). Roles drawn from the controlled
+  # vocabulary (acetypes.AudienceRoles): developer, architect.
+  audience:
+    roles:
+      - developer
+      - architect
+    domains:
+      - backend-services
+  useCases:
+    - title: Saga / orchestration service shape
+      summary: Supply the saga reference architecture, the compensation/state-persistence/timeout design patterns, and the step/compensation interface conventions to the workspace's codegen/designgen skills; the concrete workflow coordinator, broker, and language are the stack pack's and the Workspace Profile's.
+
+description: >
+  Saga / orchestration reference architecture for long-running distributed
+  transactions. A saga is a sequence of local steps across services; each
+  forward step has a compensating action that undoes its effect on failure, so
+  a partial failure is rolled back by compensation rather than a distributed
+  two-phase commit. The pack carries both shapes — orchestrated (a central
+  coordinator drives the steps and compensations) and choreographed (each step
+  reacts to the previous step's event) — the compensation, saga-state-persistence
+  and per-step-timeout-and-retry patterns, the step and compensation interface
+  conventions, step-messaging good practice against an ABSTRACT client, the
+  required observability signals, and the architectural anti-patterns. It names
+  no language, framework, broker product, or workflow engine: "the workflow /
+  saga coordinator" is referred to abstractly, so this pack composes with any
+  stack pack that supplies a concrete coordinator. It reuses messaging
+  vocabulary with the Event-Driven pack but stands alone — it imports nothing
+  from it. Consumed by the cspa workspace's codegen, designgen and runbookgen
+  skills via "active Practice Pack" indirection; the language pairing is
+  declared by the Workspace Profile, not here.
+
+appliesTo:
+  workspaces:
+    - "urn:ordin:default:workspaces:cspa-431@^1.0.0"
+
+# ---- architecture-side items (this family writes these; no stack-side item) ----
+
+# Orchestrated coordinator + steps + compensations (and the choreographed
+# variant), a language-neutral service template, and the binding ADRs. Bodies
+# live in the cited reference files.
+referenceArchitecture:
+  diagrams:
+    - reference-architecture/topology.md
+  serviceTemplate: reference-architecture/service-template.md
+  adrs:
+    - id: compensation-over-distributed-locks
+      statement: A failed saga is rolled back by compensating actions, never by a distributed two-phase commit or cross-service locks; each forward step defines its own compensation.
+    - id: persist-saga-state
+      statement: Saga state (the steps taken and their outcomes) is persisted durably, so a coordinator restart resumes or compensates an in-flight saga rather than losing it.
+    - id: per-step-timeout-and-retry
+      statement: Every step that calls an external participant has a bounded timeout and a bounded retry budget; on exhaustion the saga compensates, it does not hang.
+
+# Each entry carries a `when` predicate so it applies conditionally
+# (PACK_PATTERN_NO_WHEN clears). Bodies are the cited reference files.
+designPatterns:
+  required:
+    - id: compensating-action
+      ref: patterns/compensation.md
+      when: "a saga step has side effects that must be undone on failure"
+    - id: saga-state-persistence
+      ref: patterns/saga-state.md
+      when: "a saga spans more than one message"
+    - id: per-step-timeout-and-retry
+      ref: steps/contract.md
+      when: "a step calls an external participant"
+  recommended:
+    - id: orchestrated-saga
+      ref: patterns/orchestrated.md
+      when: "the step order and compensation logic are best owned by a single explicit coordinator"
+    - id: choreographed-saga
+      ref: patterns/choreographed.md
+      when: "the steps are loosely coupled and each can react to the previous step's event without a central coordinator"
+  prohibited:
+    - id: distributed-transaction-without-compensation
+      reason: "no two-phase commit or cross-service lock across services; a failed step is undone by compensation, not by a distributed transaction"
+
+# Shape contracts, abstract — not a wire schema. Body: steps/contract.md.
+interfaceConventions:
+  saga:
+    stepContract: "<saga-name>.<step>.command / <saga-name>.<step>.reply with a result of {succeeded | failed}"
+    compensationContract: "<saga-name>.<step>.compensate undoes a completed step; it is idempotent and itself retried until acknowledged"
+    correlationId: saga_id
+    correlationPropagation: "saga_id is carried on every step command, reply and compensation so the coordinator correlates them to one saga instance"
+    ref: steps/contract.md
+
+# Against an ABSTRACT broker / coordinator client (no product named). Body:
+# steps/contract.md.
+brokerClientPractice:
+  stepMessaging: command-reply
+  ackPolicy: ack-after-commit
+  maxInFlight: bounded
+  maxDeliver: bounded
+  redeliveryBackoff: exponential
+  stepIdempotency: required-on-saga-id-and-step
+  compensationDelivery: at-least-once-idempotent
+  ref: steps/contract.md
+
+# ARCHITECTURAL libraries only, named abstractly. The logger/driver/test
+# framework are the stack pack's separate list (disjoint seam).
+approvedLibraries:
+  required:
+    - name: "a workflow / saga coordinator abstraction"
+      reason: "drives the step sequence, records saga state, and triggers compensations; the concrete coordinator/engine is the stack pack's"
+  blocked: []
+
+# The WHAT only (required signals). The HOW (logging library, field mechanics)
+# is the stack pack's slice of this seam. Body: observability/required-signals.md.
+observabilityConventions:
+  metrics:
+    requiredCounters:
+      - saga_started_total
+      - saga_completed_total
+      - saga_compensated_total
+      - sagas_in_flight
+    requiredHistograms:
+      - saga_duration_seconds
+  spanAttributes:
+    - saga.name
+    - saga.step
+  requiredLogFields:
+    - trace_id
+    - tenant_id
+    - saga_id
+  ref: observability/required-signals.md
+
+# Keyed on ARCHITECTURAL artefacts, never **/*.go (that is the stack pack's).
+skillActivations:
+  - skill: codegen
+    when: "files matching **/saga/** or **/workflow/** are in scope"
+  - skill: designgen
+    when: "files matching **/saga/** or **/workflow/** are in scope"
+
+antiPatterns:
+  - id: distributed-transaction-without-compensation
+    reason: "a multi-service write coordinated by a distributed two-phase commit or cross-service locks; a failed step has no compensation, so a partial failure cannot be rolled back — compensate instead"
+  - id: saga-step-without-timeout
+    reason: "a step that calls an external participant with no bounded timeout hangs the saga indefinitely on a slow or dead participant; bound every step's timeout and retry budget"
+  - id: orchestrator-without-persisted-state
+    reason: "a coordinator that holds saga state only in process memory loses every in-flight saga on restart and can neither resume nor compensate — persist saga state durably"
+  - id: shared-mutable-state-across-saga-steps
+    reason: "steps that read and write a shared mutable record couple them and make compensation non-deterministic; each step owns its own data and communicates only through the step/compensation contract"
+
+references:
+  - principles.md
+  - anti-patterns.md
+  - patterns/compensation.md
+  - patterns/saga-state.md
+  - patterns/orchestrated.md
+  - patterns/choreographed.md
+  - steps/contract.md
+  - observability/required-signals.md
+  - reference-architecture/topology.md
+  - reference-architecture/service-template.md
+
+contextLoading:
+  # Keep the eager set small to avoid context-window flooding (HLD NFR).
+  eager:
+    - principles.md
+    - anti-patterns.md
+  lazy:
+    - patterns/compensation.md
+    - patterns/saga-state.md
+    - patterns/orchestrated.md
+    - patterns/choreographed.md
+    - steps/contract.md
+    - observability/required-signals.md
+    - reference-architecture/topology.md
+    - reference-architecture/service-template.md
+
+conflictResolution:
+  # Above a stack pack ONLY on an unavoidable overlap (default: no overlap, so
+  # this never fires for a well-allocated stack pack). Architecture outranks
+  # stack on the rare genuine clash (README §"two seams").
+  overridePriority: 50
+
+governance:
+  riskTier: 2
+  approval:
+    requiredFrom:
+      - architecture-guild
+  # observabilityConventions signal set is authored as proposed and flagged for
+  # platform/observability-team ratification at this review (Phase 1 OQ-3).
+  reviewDate: 2026-01-31
+
+# Composition with overlays:
+# - Brand/jurisdiction overlays may STRENGTHEN this pack (block a coordinator
+#   library, mandate an extra required signal, tighten the compensation rule);
+#   they may not weaken safety-relevant claims (every step compensated, saga
+#   state persisted, per-step timeout/retry).
+# - This pack names no language; language overlays govern prose only.

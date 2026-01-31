@@ -1,0 +1,177 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+
+metadata:
+  id: "urn:ordin:default:practice-packs:architecture:modular-monolith"
+  name: Modular monolith
+  version: 1.0.0
+  # Architecture-team owned — NOT the workspace owner (README ownership boundary).
+  owner: architecture-guild
+  # Descriptive metadata.
+  description: "Modular monolith: one deployable with clear in-process module boundaries, each module owning its tables and talking through published facades. Names no language."
+  category: sdlc
+  # pack class lets a profile require "≥1 architecture pack" by class.
+  class: architecture
+  # roles/domains only — NO `languages`. Roles drawn from the controlled
+  # vocabulary (acetypes.AudienceRoles): developer, architect.
+  audience:
+    roles:
+      - developer
+      - architect
+    domains:
+      - backend-services
+  useCases:
+    - title: Modular-monolith service shape
+      summary: Supply the module-boundary reference architecture, in-process patterns, and cross-module conventions to the workspace's codegen/designgen skills; the language is the stack pack's and the Workspace Profile's.
+
+description: >
+  Modular-monolith reference architecture: a single deployable whose internal
+  structure is N modules with hard, in-process boundaries. Carries the
+  module-boundary shape (each module exposes a published facade and owns its
+  tables), the in-process patterns (module facade, anti-corruption layer,
+  in-process domain events), the cross-module interface conventions, the
+  observability signals that surface creeping coupling, and the architectural
+  anti-patterns. It is the broker-free counterpart to Event-Driven Services:
+  there is no network boundary between modules, so a message-broker client is
+  blocked and brokerClientPractice is omitted as N/A. It names no language; the
+  in-process mediator/event-bus is referred to abstractly. Consumed by the cspa
+  workspace's codegen, designgen and runbookgen skills via "active Practice
+  Pack" indirection; the language pairing is the Workspace Profile's.
+
+appliesTo:
+  workspaces:
+    - "urn:ordin:default:workspaces:cspa-431@^1.0.0"
+
+# ---- architecture-side items (this family writes these; no stack-side item) ----
+
+referenceArchitecture:
+  diagrams:
+    - reference-architecture/topology.md
+  serviceTemplate: reference-architecture/service-template.md
+  adrs:
+    - id: no-internal-cross-module-calls
+      statement: No module calls another module's internals; the only cross-module entry point is the published facade.
+    - id: facade-only-cross-module
+      statement: Cross-module calls go through the published facade method; reaching into internals is a boundary violation.
+    - id: one-db-module-owned-tables
+      statement: There is one database; each table is owned by exactly one module, and only its owner writes it.
+
+# Each non-prohibited entry carries a `when` predicate (PACK_PATTERN_NO_WHEN
+# clears). Bodies are the cited reference files.
+designPatterns:
+  required:
+    - id: module-facade
+      ref: patterns/module-facade.md
+      when: "a module is consumed by another module"
+    - id: anti-corruption-layer
+      ref: patterns/anti-corruption-layer.md
+      when: "two modules have divergent models and one must consume the other"
+  recommended:
+    - id: in-process-domain-events
+      ref: patterns/in-process-events.md
+      when: "a module reacts to another module's state change without a synchronous call"
+    - id: minimal-shared-kernel
+      when: "two modules genuinely share a small, stable set of types"
+  prohibited:
+    - id: cross-module-internal-import
+      reason: "breaks the module boundary; use the published facade instead"
+    - id: distributed-pattern-without-network-boundary
+      reason: "an in-process transaction suffices; outbox/saga add no value without a network boundary"
+
+interfaceConventions:
+  modules:
+    boundary: "cross-module calls go through the published facade method; no reaching into internals"
+    events: "in-process event naming <module>.<entity>.<event>"
+    ownership: "each table is owned by exactly one module; only the owner writes it"
+    ref: modules/boundary-rules.md
+
+# brokerClientPractice: omitted — N/A, broker-free shape. A modular monolith has
+# no network boundary between modules, so there is no broker client to govern.
+# (Stated explicitly per spec, not silently absent — PACK_BROKER_IN_MONOLITH
+# clears.)
+
+# ARCHITECTURAL libraries only, named abstractly. The inverse of the EDS pack:
+# a message-broker client is BLOCKED here.
+approvedLibraries:
+  required:
+    - name: "an in-process mediator / event-bus abstraction"
+      reason: "carries in-process domain events between modules without a network hop"
+  blocked:
+    - name: "a message broker client"
+      reason: "a modular monolith has no network boundary between in-process modules"
+
+# The WHAT only. These two counters exist specifically to spot creeping coupling.
+observabilityConventions:
+  metrics:
+    requiredCounters:
+      - module_request_total
+      - cross_module_call_total
+  spanAttributes:
+    - module.name
+  requiredLogFields:
+    - trace_id
+    - tenant_id
+    - module
+  ref: observability/required-signals.md
+
+# Keyed on module-boundary artefacts, never **/*.go (that is the stack pack's).
+skillActivations:
+  - skill: codegen
+    when: "files matching **/internal/<module>/** or a module manifest file are in scope"
+  - skill: designgen
+    when: "files matching **/internal/<module>/** are in scope"
+
+antiPatterns:
+  - id: import-another-modules-internal
+    reason: "reaching past the facade into another module's internals couples the two and erases the boundary"
+  - id: shared-mutable-table-across-modules
+    reason: "two modules writing one table destroys single-owner ownership and creates hidden coupling"
+  - id: distributed-pattern-where-in-process-suffices
+    reason: "outbox/saga/idempotency-key add cost and complexity with no network boundary to justify them"
+
+references:
+  - principles.md
+  - anti-patterns.md
+  - patterns/module-facade.md
+  - patterns/anti-corruption-layer.md
+  - patterns/in-process-events.md
+  - modules/boundary-rules.md
+  - modules/ownership-map.md
+  - observability/required-signals.md
+  - reference-architecture/topology.md
+  - reference-architecture/service-template.md
+
+contextLoading:
+  # Keep the eager set small to avoid context-window flooding (HLD NFR).
+  eager:
+    - principles.md
+    - anti-patterns.md
+  lazy:
+    - patterns/module-facade.md
+    - patterns/anti-corruption-layer.md
+    - patterns/in-process-events.md
+    - modules/boundary-rules.md
+    - modules/ownership-map.md
+    - observability/required-signals.md
+    - reference-architecture/topology.md
+    - reference-architecture/service-template.md
+
+conflictResolution:
+  # Above a stack pack ONLY on an unavoidable overlap (default: no overlap).
+  # Architecture outranks stack on the rare genuine clash (README §"two seams").
+  overridePriority: 50
+
+governance:
+  riskTier: 2
+  approval:
+    requiredFrom:
+      - architecture-guild
+  # observabilityConventions signal set is authored as proposed and flagged for
+  # platform/observability-team ratification at this review (Phase 1 OQ-3).
+  reviewDate: 2026-01-31
+
+# Composition with overlays:
+# - Brand/jurisdiction overlays may STRENGTHEN this pack (tighten the boundary
+#   rule, mandate an extra coupling signal); they may not weaken safety-relevant
+#   claims (the facade boundary, single-owner tables, the broker block).
+# - This pack names no language; language overlays govern prose only.

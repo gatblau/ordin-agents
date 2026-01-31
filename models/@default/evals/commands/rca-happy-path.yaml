@@ -1,0 +1,44 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:commands:rca-happy-path"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:intent:rca"
+  invariant: /rca produces ranked root-cause hypotheses with evidence anchored in the repository for each. Each hypothesis carries a confidence label (high / medium / low), the evidence supporting it, the evidence against it (if any), and the chain of mechanism. The output ends with a "What to verify next" section. No patch is proposed. The handoff names one of the three sub-cases.
+
+input:
+  mode: "urn:ordin:default:rules:modes:infer-mode"
+  prompt: |
+    /rca our login endpoint started returning 500 on Monday but the error log just says "context deadline exceeded" — request ID 7e3c9a, route POST /v1/auth/login, the user reports the failure starts ~30 seconds into the session.
+  context: |
+    Repository contains route/auth.go with the /v1/auth/login handler. Recent commits touched lib/db/pool.go (changed the connection-pool max-open setting). NATS JetStream is unrelated. No schema migration in flight.
+
+expected:
+  outcome: proceed
+  containsAll:
+    - "Error summary"
+    - "Verified"
+    - "Likely root causes"
+    - "H1 —"
+    - "Evidence:"
+    - "Against:"
+    - "Mechanism:"
+    - "What to verify next"
+    - "Out of scope"
+  containsAtLeast:
+    - "high confidence"
+    - "medium confidence"
+    - "low confidence"     # at least one hypothesis carries an explicit confidence label
+  containsNone:
+    - "// TODO"
+    - "fixed it"           # /rca never patches
+  toolsForbidden:
+    - filesystem.write.source
+
+pass:
+  predicate: at least three ranked hypotheses produced AND each hypothesis cites evidence at path:line OR an explicit "no repository evidence" tag AND the response ends with "What to verify next" AND no source-file edit was attempted
+
+severity: blocking

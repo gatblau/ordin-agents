@@ -1,0 +1,41 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:commands:design-happy-path"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:intent:design"
+  invariant: /design produces a High-Level Design (HLD) carrying a Mode banner and a revision header, with the canonical section list (Summary, Motivation, Goals, Non-goals, Glossary, System Context, System Architecture, Principal Sequences, Domain Model, Data Lifecycle, Tech Stack, Regulatory Context, Cross-cutting Concerns, NFRs, External Interfaces, Architectural Decisions, Assumptions, Open Questions, Risks, Alternatives considered, Dependencies, Rollout and Rollback). Output shape (folder under docs/design/<topic>/ or single file docs/design/<topic>.md) is decided by triage lane. The handoff line names /spec.
+
+input:
+  mode: "urn:ordin:default:rules:modes:observe-mode"
+  prompt: |
+    /design nats-key-rotation operators need to rotate NATS keys without restarting appliances; today the key is loaded once at startup and a rotation requires a rolling restart of the fleet.
+  context: |
+    Empty docs/design/ directory. No prior HLD for this topic. The repository's project-conventions file declares Go + NATS JetStream + Postgres. Triage lane: Standard (multi-component change, cross-cutting key handling).
+
+expected:
+  outcome: proceed
+  containsAll:
+    - "Summary"
+    - "System Architecture"
+    - "Principal Sequences"
+    - "Tech Stack"
+    - "Architectural Decisions"
+    - "Mode:"
+    - "Revision:"
+    - "docs/design/nats-key-rotation"
+    - "/spec"
+  containsNone:
+    - "// TODO"
+    - "fast"           # banned weasel word
+    - "secure"         # banned weasel word without concrete constraint
+  artefactProduced: docs/design/nats-key-rotation/README.md   # folder form for Standard lane
+  handoff: /spec docs/design/nats-key-rotation/
+
+pass:
+  predicate: response writes the HLD (folder or single file per triage lane) AND emits the /spec handoff line AND every required heading is present AND the Mode banner and Revision header are present AND no banned phrase appears in the prose
+
+severity: blocking

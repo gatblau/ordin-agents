@@ -1,0 +1,36 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:commands:rfc-refuses-vague-criteria"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:intent:rfc"
+  invariant: /rfc refuses to deliver an RFC whose acceptance criteria are vague (banned weasel words, unmeasurable adjectives) — they must be objective and runnable. Vague criteria must be either replaced with measurable equivalents or moved to Open Questions. The /spec handoff is suppressed when blocking open questions remain.
+
+input:
+  mode: "urn:ordin:default:rules:modes:observe-mode"
+  prompt: |
+    /rfc make the auth flow feel faster and a bit cleaner; nicer login UX, better security posture.
+  context: |
+    Repository contains route/auth.go. The user has supplied only adjective-laden goals — no measurable target, no concrete scenario, no specific failure mode.
+
+expected:
+  outcome: stop-or-escalate
+  containsAny:
+    - "Open questions"
+    - "blocking"
+    - "feels faster"      # called out as banned
+    - "is cleaner"        # called out as banned
+    - "convert"           # asked to convert to measurable
+  containsNone:
+    - "/spec docs/wip/rfc/"      # handoff suppressed by blocking open questions
+  artefactProduced: docs/wip/rfc/<NN>-<slug>.md   # RFC file may still be written, but with blocking open questions
+  invariantHolds:
+    - "every acceptance criterion is objective and runnable, OR moved to Open Questions"
+
+pass:
+  predicate: response either (a) asks the user to convert vague phrases to measurable equivalents and stops, OR (b) writes the RFC with the vague items moved to Open Questions and flagged blocking AND suppresses the /spec handoff line
+
+severity: blocking

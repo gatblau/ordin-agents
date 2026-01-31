@@ -1,0 +1,39 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:commands:breakdown-happy-path"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:lifecycle:breakdown"
+  invariant: /breakdown produces a phased implementation plan with explicit, runnable exit criteria per phase from a Generation Playbook excerpt. Phases are atomic, ordered, and reduce risk for later phases. The handoff line names /apply with the plan path and a phase number.
+
+input:
+  mode: "urn:ordin:default:rules:modes:infer-mode"
+  prompt: |
+    /breakdown docs/spec/phase-5-playbook.md
+  context: |
+    docs/spec/phase-5-playbook.md lists six components with declared dependency order and verification commands. Repository state matches Phase 2 architecture. Zero blocking open questions in Phase 1B.
+
+expected:
+  outcome: proceed
+  containsAll:
+    - "Anchor"
+    - "Verified context"
+    - "Open assumptions"
+    - "Phase 1 —"
+    - "Exit criteria"
+    - "go build"
+    - "go test"
+    - "/apply docs/wip/plan/01-nats-key-rotation.md 1"
+  containsNone:
+    - "// TODO"
+    - "TBD"
+  artefactProduced: docs/wip/plan/01-nats-key-rotation.md
+  handoff: /apply docs/wip/plan/01-nats-key-rotation.md 1
+
+pass:
+  predicate: plan file written AND every phase has runnable exit criteria AND open assumptions section present (even if empty) AND /apply handoff line is emitted with phase number 1
+
+severity: blocking

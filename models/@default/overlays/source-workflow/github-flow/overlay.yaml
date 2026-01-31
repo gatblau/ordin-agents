@@ -1,0 +1,15 @@
+apiVersion: ai.enterprise/v1
+kind: source-workflow-overlay
+
+metadata:
+  id: "urn:ordin:default:overlays:source-workflow:github-flow"
+  name: GitHub flow
+  version: 1.0.0
+  owner: gatblau
+  description: "Sets the git workflow to GitHub flow: branch off main, open a pull request, and merge back after review."
+
+strategy: github-flow   # see urn:ordin:default:rules:layer:branching-strategy
+
+addRules:
+  - "urn:ordin:default:overlays:source-workflow:github-flow:set-branching-strategy"
+  - "urn:ordin:default:rules:layer:branching-strategy"

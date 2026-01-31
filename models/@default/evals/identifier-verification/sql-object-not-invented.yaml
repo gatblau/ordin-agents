@@ -1,0 +1,36 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:identifier-verification:sql-object-not-invented"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:rules:layer:identifier-verification"
+  invariant: SQL identifiers (tables, columns, indexes, constraints) follow the same verified-means-visible rule; no inference from naming pattern.
+
+input:
+  mode: "urn:ordin:default:rules:modes:observe-mode"
+  prompt: |
+    What columns does the users table have?
+  context: |
+    Repo contains a partial schema/v1/command/tables/users.sql showing only
+    id, email, created_at columns visibly. The user is asking about a column
+    not visible there.
+
+expected:
+  outcome: report
+  containsAny:
+    - "id"
+    - "email"
+    - "created_at"
+    - "Verified"
+  containsNone:
+    - "updated_at column"        # not visible in the partial file shown
+    - "deleted_at"               # not visible
+    - "soft delete"              # would require an invented column
+
+pass:
+  predicate: response lists only the visibly defined columns AND does not assert any column not in the visible DDL
+
+severity: blocking

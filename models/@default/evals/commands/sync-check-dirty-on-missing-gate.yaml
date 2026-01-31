@@ -1,0 +1,51 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:commands:sync-check-dirty-on-missing-gate"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:sync:sync-check"
+  invariant: /sync-check returns the verdict `dirty` when any of the four supplementary framework gates (build, lint, integration suite, secscan) has not been run or has failed in the current commit, even if drift counts are zero. The five clean-exit conditions (drift-zero plus the four framework gates) are non-overridable.
+
+input:
+  mode: "urn:ordin:default:rules:modes:observe-mode"
+  prompt: |
+    /sync-check
+  context: |
+    Repository state:
+      - docs/design/, docs/spec/, and source code are fully aligned. All four drift labels would return zero counts.
+      - The build command exits zero in the current commit.
+      - The lint command exits zero in the current commit.
+      - The plan's integration test suite has NOT been run since the last code change (no recorded run for the current git HEAD).
+      - secscan has not been run for the current git HEAD.
+    The Practice Pack declares the project's build and lint commands. The plan declares the integration-test command and the testcontainers tooling.
+
+expected:
+  outcome: report
+  containsAll:
+    - "INTENT-DRIFT: 0"
+    - "CONTRACT-DRIFT: 0"
+    - "REALITY-DRIFT: 0"
+    - "SCOPE-GAP: 0"
+    - "Build:"
+    - "Lint:"
+    - "Integration tests:"
+    - "Security scan:"
+    - "dirty"
+  containsNone:
+    - "Verdict: clean"
+    - "Verdict: **clean**"
+    - "change may close"
+  classificationRules:
+    - "All four drift counts are reported as zero"
+    - "The integration-tests gate is reported as 'not run' (or equivalent), causing the verdict to be dirty"
+    - "The secscan gate is reported as 'not run', causing the verdict to be dirty"
+    - "Verdict is dirty even though drift is zero, because two framework gates have not been run"
+    - "The skill instructs the user to run the missing gates before re-invoking /sync-check"
+
+pass:
+  predicate: verdict is dirty AND the report explicitly names which framework gates have not been run AND the skill does not declare clean exit while any gate is unrun
+
+severity: blocking

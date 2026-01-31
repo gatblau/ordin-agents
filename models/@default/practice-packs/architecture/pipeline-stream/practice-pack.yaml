@@ -1,0 +1,200 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+
+metadata:
+  id: "urn:ordin:default:practice-packs:architecture:pipeline-stream"
+  name: Pipelines and streams
+  version: 1.0.0
+  # Architecture-team owned — NOT the workspace owner (README ownership boundary).
+  owner: architecture-guild
+  # Descriptive metadata.
+  description: "Pipeline and stream processing: data flowing through source, transform, and sink stages with windowing, checkpoints, and backpressure. Names no language or engine."
+  category: sdlc
+  # pack class lets a profile require "≥1 architecture pack" by class.
+  class: architecture
+  # roles/domains only — NO `languages` (the language pairing is the Workspace
+  # Profile's, never an architecture pack's). Roles drawn from the controlled
+  # vocabulary (acetypes.AudienceRoles): developer, architect.
+  audience:
+    roles:
+      - developer
+      - architect
+    domains:
+      - backend-services
+      - data-engineering
+  useCases:
+    - title: Staged dataflow service shape
+      summary: Supply the source→transform→sink reference architecture, the windowing/checkpoint/backpressure design patterns, and the time/watermark interface conventions to the workspace's codegen/designgen skills; the concrete stream engine and language are the stack pack's and the Workspace Profile's.
+
+description: >
+  Pipeline / stream-processing reference architecture for bounded or unbounded
+  staged dataflow. Carries the source→transform→sink topology, the dataflow
+  design patterns (windowing, checkpointing, backpressure, watermarking,
+  idempotent sink), the time-semantics interface conventions (stage I/O schema,
+  event-time vs processing-time, watermarks, the checkpoint/offset-commit
+  contract), stream source/sink consumer good practice against an ABSTRACT
+  client, the required observability signals, and the architectural
+  anti-patterns. It names no language, framework or stream engine: "the stream
+  runtime" is referred to abstractly, so this pack composes with any stack pack
+  that supplies a concrete runtime. Consumed by the cspa workspace's codegen,
+  designgen and runbookgen skills via "active Practice Pack" indirection; the
+  language pairing is declared by the Workspace Profile, not here.
+
+appliesTo:
+  workspaces:
+    - "urn:ordin:default:workspaces:cspa-431@^1.0.0"
+
+# ---- architecture-side items (this family writes these; no stack-side item) ----
+
+# Source → transform stages → sink topology with a checkpoint store, a
+# language-neutral stage template, and the binding ADRs. Bodies live in the
+# cited reference files.
+referenceArchitecture:
+  diagrams:
+    - reference-architecture/topology.md
+  serviceTemplate: reference-architecture/service-template.md
+  adrs:
+    - id: delivery-guarantee
+      statement: A pipeline delivers at-least-once with idempotent sinks, or exactly-once via checkpoints; a stage must declare which and tolerate the consequences of its choice.
+    - id: event-time-over-processing-time
+      statement: Aggregation is keyed on event-time with watermarks, not on processing-time; processing-time windows are the exception and must be justified.
+    - id: checkpointed-progress
+      statement: Progress is checkpointed; a stage that restarts resumes from its last committed checkpoint, never from the start of an unbounded stream.
+
+# Each entry carries a `when` predicate so it applies conditionally
+# (PACK_PATTERN_NO_WHEN clears). Bodies are the cited reference files.
+designPatterns:
+  required:
+    - id: windowing
+      ref: patterns/windowing.md
+      when: "an unbounded stream is aggregated"
+    - id: checkpointing
+      ref: patterns/checkpointing.md
+      when: "the pipeline must resume after failure"
+    - id: backpressure
+      ref: patterns/backpressure.md
+      when: "a downstream stage is slower than its source"
+  recommended:
+    - id: watermarking
+      ref: patterns/watermarking.md
+      when: "event-time aggregation must decide when a window is complete despite out-of-order arrivals"
+    - id: idempotent-sink
+      ref: patterns/idempotent-sink.md
+      when: "an at-least-once pipeline writes to an external sink that may see the same record twice"
+  prohibited:
+    - id: unbounded-state-without-eviction
+      reason: "unbounded state exhausts memory; bound it with a window or an eviction policy"
+
+# Shape contracts, abstract — not a wire schema. Body:
+# time/watermark-semantics.md.
+interfaceConventions:
+  stage:
+    ioSchemaContract: "every stage declares its input record schema and output record schema; a downstream stage's input schema must accept its upstream's output"
+    timeSemantics: event-time-with-watermarks
+    processingTimeAllowed: by-exception-only
+    checkpointContract: "a stage commits its source offset and its state snapshot together; on restart it restores both from the last committed checkpoint"
+    ref: time/watermark-semantics.md
+
+# Against an ABSTRACT stream source/sink client (no product named). Body:
+# broker/stream-consumer-good-practice.md.
+brokerClientPractice:
+  consumerPattern: durable-partitioned-pull
+  offsetCommitPolicy: commit-with-checkpoint
+  ackPolicy: ack-after-checkpoint
+  maxInFlight: bounded
+  replaySemantics: replay-from-committed-offset
+  backpressureStrategy: pull-rate-from-downstream-demand
+  ref: broker/stream-consumer-good-practice.md
+
+# ARCHITECTURAL libraries only, named abstractly. The logger/driver/test
+# framework are the stack pack's separate list (disjoint seam).
+approvedLibraries:
+  required:
+    - name: "a stream-processing runtime abstraction"
+      reason: "the abstract staged-dataflow runner (source/transform/sink wiring, state, checkpointing); the concrete engine is the stack pack's"
+  blocked: []
+
+# The WHAT only (required signals). The HOW (logging library, field mechanics)
+# is the stack pack's slice of this seam. Body: observability/required-signals.md.
+observabilityConventions:
+  metrics:
+    requiredCounters:
+      - records_in_total
+      - records_out_total
+      - stage_lag
+      - checkpoint_age_seconds
+  spanAttributes:
+    - stage.name
+  requiredLogFields:
+    - trace_id
+    - tenant_id
+    - stage
+  ref: observability/required-signals.md
+
+# Keyed on ARCHITECTURAL artefacts, never **/*.go (that is the stack pack's).
+skillActivations:
+  - skill: codegen
+    when: "files matching **/pipeline/** or **/stream/** are in scope"
+  - skill: designgen
+    when: "files matching **/pipeline/** or **/stream/** are in scope"
+
+antiPatterns:
+  - id: unbounded-state-without-eviction
+    reason: "a stateful stage that never evicts grows without bound and exhausts memory; bound state with a window or eviction policy"
+  - id: aggregation-without-watermark
+    reason: "aggregating an unbounded stream with no watermark can never decide when a window is complete, so it either emits early or never emits"
+  - id: side-effect-without-idempotency
+    reason: "at-least-once redelivery and checkpoint replay re-emit records; a non-idempotent sink double-applies the side effect"
+
+references:
+  - principles.md
+  - anti-patterns.md
+  - patterns/windowing.md
+  - patterns/checkpointing.md
+  - patterns/backpressure.md
+  - patterns/watermarking.md
+  - patterns/idempotent-sink.md
+  - time/watermark-semantics.md
+  - broker/stream-consumer-good-practice.md
+  - observability/required-signals.md
+  - reference-architecture/topology.md
+  - reference-architecture/service-template.md
+
+contextLoading:
+  # Keep the eager set small to avoid context-window flooding (HLD NFR).
+  eager:
+    - principles.md
+    - anti-patterns.md
+  lazy:
+    - patterns/windowing.md
+    - patterns/checkpointing.md
+    - patterns/backpressure.md
+    - patterns/watermarking.md
+    - patterns/idempotent-sink.md
+    - time/watermark-semantics.md
+    - broker/stream-consumer-good-practice.md
+    - observability/required-signals.md
+    - reference-architecture/topology.md
+    - reference-architecture/service-template.md
+
+conflictResolution:
+  # Above a stack pack ONLY on an unavoidable overlap (default: no overlap, so
+  # this never fires for a well-allocated stack pack). Architecture outranks
+  # stack on the rare genuine clash (README §"two seams").
+  overridePriority: 50
+
+governance:
+  riskTier: 2
+  approval:
+    requiredFrom:
+      - architecture-guild
+  # observabilityConventions signal set is authored as proposed and flagged for
+  # platform/observability-team ratification at this review (Phase 1 OQ-3).
+  reviewDate: 2026-01-31
+
+# Composition with overlays:
+# - Brand/jurisdiction overlays may STRENGTHEN this pack (block a library,
+#   tighten the delivery guarantee, mandate an extra required signal); they may
+#   not weaken safety-relevant claims (checkpointing, idempotent sinks,
+#   bounded state).
+# - This pack names no language; language overlays govern prose only.

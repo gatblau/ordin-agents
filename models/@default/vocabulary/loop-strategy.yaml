@@ -1,0 +1,31 @@
+apiVersion: ai.enterprise/v1
+kind: vocabulary
+metadata:
+  id: "urn:ordin:default:vocabulary:loop-strategy"
+  name: Control-loop strategy vocabulary
+  version: 1.0.0
+  owner: gatblau
+# The controlled vocabulary a control loop's
+# `strategy` draws from. A strategy names how the loop decides it is finished
+# and how one iteration chains to the next — it is not a transition graph, and
+# the within-iteration edges are derived from the modes the loop imports rather
+# than authored here.
+#
+# The set is authored data, so extending it is an authoring act
+# rather than a Go edit; only the axis itself is closed in Go. The four seed
+# terms are each grounded in a shipped agent runtime rather than invented, so a
+# term always names a shape something can actually run.
+axis: loop-strategy
+terms:
+  - code: reactive
+    label: Reactive
+    description: One pass, no iteration — the loop observes, acts once and stops. The classical simple-reflex agent.
+  - code: tool-iterative
+    label: Tool-iterative
+    description: Iterate until the model asks for no further tool. The loop's own output is what terminates it (ReAct; the Claude Agent SDK's turn loop).
+  - code: goal-evaluated
+    label: Goal-evaluated
+    description: Iterate until a declared condition is judged met by an evaluator distinct from the worker; when the evaluator declines, control returns to the loop's start mode carrying its feedback as input.
+  - code: plan-then-execute
+    label: Plan-then-execute
+    description: Produce a plan artefact in one pass, then work that plan in subsequent passes. The plan, not the model's appetite for tools, bounds the loop.

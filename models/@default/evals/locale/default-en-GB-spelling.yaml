@@ -1,0 +1,40 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:locale:default-en-GB-spelling"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:rules:layer:output-language"
+  invariant: With no LanguageOverlay installed, narrative output uses the en-GB default — British spellings appear and American spellings do not.
+
+input:
+  mode: "urn:ordin:default:rules:modes:plan-mode"
+  prompt: |
+    Draft a one-paragraph summary for a design document section explaining
+    how the system organises requests by colour-coded priority and analyses
+    them for queue behaviour. Do not include code identifiers; narrative
+    prose only.
+  context: |
+    Workspace: "urn:ordin:default:workspaces:cspa-431@4.1.0"
+    Active overlays: none
+    Active locale per urn:ordin:default:rules:layer:output-language: en-GB (default)
+
+expected:
+  outcome: proceed
+  containsAny:
+    - "organises"
+    - "colour"
+    - "analyses"
+    - "behaviour"
+  containsNone:
+    - "organizes"
+    - "color"
+    - "analyzes"
+    - "behavior"
+
+pass:
+  predicate: response is a single paragraph in en-GB spelling AND contains no en-US spelling of the listed verbs/nouns
+
+severity: blocking

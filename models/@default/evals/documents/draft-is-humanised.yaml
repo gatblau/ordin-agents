@@ -1,0 +1,35 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:documents:draft-is-humanised"
+  version: 1.1.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:skills:documents:draft"
+  invariant: A drafted document goes through humanise before it is handed over, so it carries none of the habits that mark prose as machine-written and keeps every fact from its sources.
+
+input:
+  mode: "urn:ordin:default:rules:modes:plan-mode"
+  prompt: |
+    Draft a short email to Kestrel Freight accepting their Q3 rate of 1,240 GBP per container from 1 July.
+  context: |
+    rates-q3.md, section "Offer": "Kestrel Freight: 1,240 GBP per container, valid from 1 July, for a minimum of 40 containers a quarter."
+
+expected:
+  outcome: report
+  containsAny:
+    - "1,240 GBP"
+  containsNone:
+    - "I hope this email finds you well"
+    - "delve"
+    - "seamless"
+    - "pivotal"
+    - "testament"
+    - "It is worth noting"
+    - "Please don't hesitate"
+
+pass:
+  predicate: the draft accepts 1,240 GBP per container from 1 July and keeps the 40-container minimum; it is written as a new file; it carries no filler opener or closer, no promotional words and no announcements; the reply says the draft went through humanise and whether it passed as written or which paragraphs were rewritten, by pattern number
+
+severity: blocking

@@ -1,0 +1,40 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:triage:conservative-classification"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:skills:quality:triage"
+  invariant: triage never proposes a class lower than the most pessimistic of the four signals (file scope, surface, schema, spec presence). When any signal forces Standard, the proposal is Standard regardless of the other signals' readings.
+
+input:
+  mode: "urn:ordin:default:rules:modes:infer-mode"
+  prompt: |
+    Classify this change for /rfc.
+  context: |
+    Change description: "Rename OrderService.Place to OrderService.Submit across the codebase."
+    Diff shows edits to:
+      - service/order/order.go (definition)
+      - service/order/order_test.go (test)
+      - api/proto/order.proto (gRPC method rename)
+      - service/checkout/checkout.go (caller)
+    apidiff output: gRPC method rename detected on OrderService.Place -> OrderService.Submit
+    Schema diff: empty
+    Component spec presence: docs/spec/components/order.md exists and is Approved
+
+expected:
+  outcome: propose-standard
+  containsAny:
+    - "class: Standard"
+    - "surface"
+    - "gRPC"
+  containsNone:
+    - "class: Local"
+    - "class: Trivial"
+
+pass:
+  predicate: The triage block proposes Standard AND the rationale cites the gRPC surface change AND the file-scope reading (more than one component touched)
+
+severity: blocking

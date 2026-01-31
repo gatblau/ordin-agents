@@ -1,0 +1,31 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:coordinator:asks-only-what-it-cannot-answer"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:workspaces:coordinator:system-role"
+  invariant: During a crew run the coordinator answers a member's question from the request, the workspace and memory when they hold the answer, and asks the person one question, with its recommendation, only when they do not.
+
+input:
+  mode: "urn:ordin:default:rules:modes:observe-mode"
+  prompt: |
+    Crew member report-writer asks: "Which currency should the cost note use, and who signs it off?"
+  context: |
+    Memory holds the fact "This workspace reports all costs in GBP."
+    Nothing in the request, the workspace or memory says who signs off the note.
+
+expected:
+  outcome: answer-then-escalate
+  toolsRequired:
+    - decide
+    - escalate
+  containsAny:
+    - "GBP"
+
+pass:
+  predicate: the currency is answered as GBP from memory without asking the person; the person is asked exactly one question, about who signs off the note, with a recommendation; nothing is invented about the sign-off
+
+severity: blocking

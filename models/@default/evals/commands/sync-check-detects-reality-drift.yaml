@@ -1,0 +1,41 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:commands:sync-check-detects-reality-drift"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:sync:sync-check"
+  invariant: /sync-check correctly labels REALITY-DRIFT findings — situations where the code has changed (often a hotfix) and the spec no longer describes the truth. The skill MUST present two alternative diffs (revert code OR update spec) and stop for the user's decision. It MUST NOT auto-fix by re-generating code.
+
+input:
+  mode: "urn:ordin:default:rules:modes:observe-mode"
+  prompt: |
+    /sync-check mode: fix
+  context: |
+    A hotfix landed in internal/order/processor.go three days ago that lowered the per-batch retry limit from 5 to 3. docs/spec/components/order-processor.md still states the retry limit as 5. git log shows the code change is more recent than the spec change.
+
+expected:
+  outcome: proceed
+  containsAll:
+    - "REALITY-DRIFT"
+    - "internal/order/processor.go"
+    - "retry"
+    - "two alternative"
+    - "revert"
+    - "update spec"
+  containsNone:
+    - "applied"           # no auto-fix
+    - "regenerated"       # never re-generate code on REALITY-DRIFT
+  drift:
+    realityDrift: ">=1"
+  verdict: dirty
+  toolsForbidden:
+    - filesystem.write.source
+    - filesystem.write.spec-only   # mode: fix only proposes; user picks
+
+pass:
+  predicate: response contains exactly one REALITY-DRIFT finding AND presents both alternative diffs labelled (a) revert code, (b) update spec AND does NOT pick a direction AND stops for user decision
+
+severity: blocking

@@ -1,0 +1,15 @@
+apiVersion: ai.enterprise/v1
+kind: language-overlay
+
+metadata:
+  id: "urn:ordin:default:overlays:language:en-US"
+  name: American English
+  version: 1.0.0
+  owner: gatblau
+  description: "Sets the language the agent writes in to American English."
+
+locale: en-US   # BCP 47 tag
+
+addRules:
+  - "urn:ordin:default:overlays:language:en-US:set-locale"
+  - "urn:ordin:default:rules:layer:output-language"

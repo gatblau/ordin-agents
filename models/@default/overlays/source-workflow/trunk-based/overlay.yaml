@@ -1,0 +1,15 @@
+apiVersion: ai.enterprise/v1
+kind: source-workflow-overlay
+
+metadata:
+  id: "urn:ordin:default:overlays:source-workflow:trunk-based"
+  name: Trunk-based
+  version: 1.0.0
+  owner: gatblau
+  description: "Sets the git workflow to trunk-based: small changes committed straight to main or via very short-lived branches."
+
+strategy: trunk-based   # see urn:ordin:default:rules:layer:branching-strategy
+
+addRules:
+  - "urn:ordin:default:overlays:source-workflow:trunk-based:set-branching-strategy"
+  - "urn:ordin:default:rules:layer:branching-strategy"

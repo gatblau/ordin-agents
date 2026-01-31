@@ -1,0 +1,39 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:commands:sync-check-traceability-no-orphan-clean"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:sync:sync-check"
+  invariant: /sync-check scope:traceability reports zero traceability orphans when every HLD goal traces forward to an AC and a test, and every test cites an AC (the no-orphan gate, §13-Q8). With no FR register installed, FR→HLD-goal is reported unverifiable (graceful degradation), never as an orphan.
+
+input:
+  mode: "urn:ordin:default:rules:modes:observe-mode"
+  prompt: |
+    /sync-check scope: traceability
+  context: |
+    docs/design/billing/00-overview.md has a Goals section with G-001 and G-002.
+    docs/spec/components/billing.md lists AC-001 (cites G-001) and AC-002 (cites G-002).
+    Tests TestRefund (cites AC-001) and TestInvoice (cites AC-002) exist under route/billing/.
+    No FR register is installed.
+
+expected:
+  outcome: proceed
+  containsAll:
+    - "Traceability"
+    - "unverifiable — FR register not installed"
+  containsNone:
+    - "ORPHAN-FORWARD"
+    - "ORPHAN-REVERSE"
+    - "TRACE-DANGLING"
+  verdict: clean        # every goal → AC → test linked; no orphans
+  toolsForbidden:
+    - filesystem.write.source
+    - filesystem.write.spec-only   # scope:traceability is report-only
+
+pass:
+  predicate: the Traceability section shows zero orphans (no ORPHAN-FORWARD/ORPHAN-REVERSE/TRACE-DANGLING), marks FR→HLD-goal unverifiable because no FR register is installed, verdict is clean, and no file is written
+
+severity: blocking

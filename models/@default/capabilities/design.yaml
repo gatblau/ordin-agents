@@ -1,0 +1,44 @@
+apiVersion: ai.enterprise/v1
+kind: capability
+metadata:
+  id: "urn:ordin:default:capabilities:design"
+  name: Design capability
+  description: "Takes a problem to a design document by interview, or captures a change request as an RFC. The first step of the delivery loop."
+  version: 1.1.0
+  owner: gatblau
+
+purpose: >
+  Take a problem statement to a structured design document via interview
+  (greenfield), or capture a change request as a structured RFC against
+  existing code (maintenance). Both are *move 1 (Capture intent)* of
+  the four-move CSPA loop.
+
+composedOf:
+  skills:
+    - "urn:ordin:default:skills:quality:designgen"
+  commands:
+    - "urn:ordin:default:commands:intent:design"          # door 1 — greenfield capture
+    - "urn:ordin:default:commands:intent:rfc"             # door 2 — change request capture
+  modes:
+    - "urn:ordin:default:rules:modes:observe-mode"
+    - "urn:ordin:default:rules:modes:infer-mode"
+    - "urn:ordin:default:rules:modes:plan-mode"
+    - "urn:ordin:default:rules:modes:explain-mode"
+    - "urn:ordin:default:rules:modes:escalate-mode"
+  rules:
+    - "urn:ordin:default:rules:orchestrators:working-modes"
+    - "urn:ordin:default:rules:layer:identifier-verification"
+
+defaultToolPolicy:
+  allowed: []
+  requiresHumanApproval: []
+  prohibited:
+    - filesystem.write.source
+  # Universal safety floor (git/PR/publish/migration mutations) is asserted once
+  # at the workspace level; not redeclared here.
+
+outputs:
+  - docs/design/<topic>.md
+  - docs/wip/rfc/<NN>-<slug>.md (when /rfc produces a large RFC; transient)
+  - docs/wip/rca/<NN>-<slug>.md (when /rca produces a long/complex analysis; transient)
+  - docs/wip/plan/<NN>-<slug>.md (when /breakdown produces a large plan; transient)

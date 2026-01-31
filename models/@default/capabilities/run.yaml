@@ -1,0 +1,45 @@
+apiVersion: ai.enterprise/v1
+kind: capability
+metadata:
+  id: "urn:ordin:default:capabilities:run"
+  name: Run capability
+  description: "Drafts an operations runbook from a service's source and config, with diagnostic commands for you to run."
+  version: 1.0.0
+  owner: gatblau
+
+purpose: >
+  Draft an operational runbook from a service's source and configuration.
+  Never executes ops commands; suggested diagnostic commands are emitted
+  as fenced blocks for the user to run.
+
+composedOf:
+  skills:
+    - "urn:ordin:default:skills:release:runbookgen"
+  commands: []
+  modes:
+    - "urn:ordin:default:rules:modes:observe-mode"
+    - "urn:ordin:default:rules:modes:plan-mode"
+    - "urn:ordin:default:rules:modes:explain-mode"
+    - "urn:ordin:default:rules:modes:escalate-mode"
+  rules:
+    - "urn:ordin:default:rules:orchestrators:working-modes"
+    - "urn:ordin:default:rules:layer:identifier-verification"
+
+defaultToolPolicy:
+  allowed:
+    - filesystem.read
+  requiresHumanApproval: []
+  prohibited:
+    - filesystem.write.source
+    - shell.execute.ops
+  # Universal safety floor (git/PR/publish/migration mutations) is asserted once
+  # at the workspace level; not redeclared here.
+
+verificationGates:
+  - name: gaps-not-body
+    invariant: unverifiable-endpoints-go-in-gaps-section-not-body
+    failureBehaviour: route-to-gaps
+
+outputs:
+  - docs/runbooks/<target>.md (when output: file)
+  - inline (default)

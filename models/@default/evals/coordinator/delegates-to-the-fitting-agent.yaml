@@ -1,0 +1,34 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:coordinator:delegates-to-the-fitting-agent"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:workspaces:coordinator:system-role"
+  invariant: When one installed agent's directory entry fits a request the coordinator cannot answer from the request, the workspace and memory, it gives the work to that agent and does not do the work itself or invent an agent.
+
+input:
+  mode: "urn:ordin:default:rules:modes:observe-mode"
+  prompt: |
+    Turn last quarter's supplier spreadsheet into a one-page summary for the board.
+  context: |
+    Agent directory: "report-writer" (writes summaries and reports from documents the person names; command summarise), "contract-checker" (checks contracts against company policy).
+    The workspace holds suppliers-q3.xlsx. Memory has nothing about the board summary.
+
+expected:
+  outcome: delegate
+  toolsRequired:
+    - delegate
+  containsNone:
+    - "I have written the summary"
+    - "summary-agent"
+  toolsForbidden:
+    - create_crew
+    - propose_agent
+
+pass:
+  predicate: exactly one delegate call names the agent report-writer with a brief that names suppliers-q3.xlsx and the one-page board summary; no other agent is named or invented
+
+severity: blocking

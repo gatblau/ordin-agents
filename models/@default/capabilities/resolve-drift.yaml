@@ -1,0 +1,66 @@
+apiVersion: ai.enterprise/v1
+kind: capability
+metadata:
+  id: "urn:ordin:default:capabilities:resolve-drift"
+  name: Resolve-drift capability
+  description: "Fixes drift found during a drift check, in the direction you choose. It never picks the direction itself."
+  version: 1.2.0
+  owner: gatblau
+
+purpose: >
+  Reconcile drift detected by `/sync-check` in a user-nominated
+  direction. `/sync-spec` handles code-to-spec; `/sync-code` handles
+  spec-to-code; intent-changing drift goes through `/spec` (move 2
+  of the CSPA loop). The capability never picks the direction; the
+  user does. After resolution, `/sync-check` verifies the targeted
+  findings closed without regression.
+
+composedOf:
+  skills:
+    - "urn:ordin:default:skills:sync:sync-spec"
+    - "urn:ordin:default:skills:sync:sync-code"
+  commands:
+    - "urn:ordin:default:commands:sync:sync-check"      # detection + exit-gate verification
+    - "urn:ordin:default:commands:sync:sync-spec"       # code-to-spec reconciliation
+    - "urn:ordin:default:commands:sync:sync-code"       # spec-to-code reconciliation
+  modes:
+    - "urn:ordin:default:rules:modes:sync-mode"
+    - "urn:ordin:default:rules:modes:patch-mode"  # /sync-code only
+    - "urn:ordin:default:rules:modes:execute-mode"  # via codegen and testgen sub-invocations
+    - "urn:ordin:default:rules:modes:review-mode"
+    - "urn:ordin:default:rules:modes:explain-mode"
+    - "urn:ordin:default:rules:modes:escalate-mode"
+  rules:
+    - "urn:ordin:default:rules:orchestrators:working-modes"
+    - "urn:ordin:default:rules:layer:identifier-verification"
+    - "urn:ordin:default:rules:layer:spec-anchors"  # TRACE-DANGLING anchors resolve here
+
+toolBindings: []
+
+defaultToolPolicy:
+  allowed:
+    - filesystem.write.spec-only  # for /sync-spec
+    - filesystem.write.source     # for /sync-code via codegen
+    - shell.execute.allowlisted   # for codegen / testgen verification
+  requiresHumanApproval:
+    - direction.nominate          # blocking — user must confirm
+  prohibited:
+    - drift.auto-resolve
+  # Universal safety floor (git/PR/publish/migration mutations) is asserted once
+  # at the workspace level; not redeclared here.
+
+verificationGates:
+  - name: direction-confirmed
+    invariant: user-nominated-only
+    failureBehaviour: stop-and-ask
+  - name: post-resolution-sync-check
+    invariant: targeted-findings-resolved-no-regressions
+    failureBehaviour: stop-and-report
+  - name: spec-draft-refusal
+    skill: "urn:ordin:default:skills:sync:sync-code"
+    invariant: only-approved-specs
+    failureBehaviour: stop-and-route-to-specgen-phase-6
+  - name: spec-gap-blocking
+    skill: "urn:ordin:default:skills:sync:sync-code"
+    invariant: empty-gaps-required
+    failureBehaviour: stop-without-codegen

@@ -1,0 +1,15 @@
+apiVersion: ai.enterprise/v1
+kind: style-overlay
+
+metadata:
+  id: "urn:ordin:default:overlays:style:regulatory-precise"
+  name: Precise, for regulators
+  version: 1.0.0
+  owner: gatblau
+  description: "Sets a regulatory-precise style: formal, exact, and audit-friendly wording for compliance and risk contexts."
+
+style: regulatory-precise   # register tag — see urn:ordin:default:rules:layer:output-style
+
+addRules:
+  - "urn:ordin:default:overlays:style:regulatory-precise:set-style"
+  - "urn:ordin:default:rules:layer:output-style"

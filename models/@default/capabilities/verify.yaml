@@ -1,0 +1,70 @@
+apiVersion: ai.enterprise/v1
+kind: capability
+metadata:
+  id: "urn:ordin:default:capabilities:verify"
+  name: Verify capability
+  description: "The read-only checks: drift detection, test retrofit, security and SQL audit, and API-change classification. Feeds the other capabilities."
+  version: 1.2.0
+  owner: gatblau
+
+purpose: >
+  Detect drift, retrofit tests, audit security and SQL posture, and
+  classify API changes. All read-only; never edits source. Findings
+  feed the Resolve-drift, Build, and Maintain capabilities.
+  `/sync-check` is the **exit gate** of every CSPA path — *no exit
+  without sync*.
+
+composedOf:
+  skills:
+    - "urn:ordin:default:skills:sync:sync-check"
+    - "urn:ordin:default:skills:quality:testgen"
+    - "urn:ordin:default:skills:analysis:secscan"
+    - "urn:ordin:default:skills:analysis:dbaudit"
+    - "urn:ordin:default:skills:analysis:apidiff"
+  commands:
+    - "urn:ordin:default:commands:sync:sync-check"      # exit gate — Design ↔ Spec ↔ Code in sync
+  modes:
+    - "urn:ordin:default:rules:modes:observe-mode"
+    - "urn:ordin:default:rules:modes:infer-mode"
+    - "urn:ordin:default:rules:modes:patch-mode"  # testgen writes test files, never source under test
+    - "urn:ordin:default:rules:modes:execute-mode"  # testgen runs the generated tests
+    - "urn:ordin:default:rules:modes:review-mode"
+    - "urn:ordin:default:rules:modes:explain-mode"
+    - "urn:ordin:default:rules:modes:escalate-mode"
+  rules:
+    - "urn:ordin:default:rules:orchestrators:working-modes"
+    - "urn:ordin:default:rules:layer:identifier-verification"
+    - "urn:ordin:default:rules:layer:spec-anchors"  # sync-check S11/S12 resolve them
+    - "urn:ordin:default:rules:layer:sql-safety"  # dbaudit, sync-check
+
+toolBindings: []
+
+defaultToolPolicy:
+  allowed:
+    - filesystem.read
+    - filesystem.write.tests-only
+    - shell.execute.allowlisted
+  requiresHumanApproval: []
+  prohibited:
+    - filesystem.write.source-under-test
+    - drift.auto-resolve
+  # Universal safety floor (git/PR/publish/migration mutations) is asserted once
+  # at the workspace level; not redeclared here.
+
+verificationGates:
+  - name: testgen-coverage
+    skill: "urn:ordin:default:skills:quality:testgen"
+    requirements:
+      - coverage.minimum-from-spec-or-arg
+    failureBehaviour: stop-and-report
+  - name: sync-check-detection-only
+    skill: "urn:ordin:default:skills:sync:sync-check"
+    invariant: detection-never-resolves
+    failureBehaviour: route-to-resolve-drift-capability
+
+outputs:
+  - drift report (sync-check)
+  - coverage report + test files (testgen)
+  - security findings (secscan)
+  - SQL audit findings (dbaudit)
+  - API diff report + semver recommendation (apidiff)

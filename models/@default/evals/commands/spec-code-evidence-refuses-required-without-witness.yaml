@@ -1,0 +1,53 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:commands:spec-code-evidence-refuses-required-without-witness"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:lifecycle:spec"
+  invariant: /spec in code-evidence mode never promotes an assertion to [Required] without a witness citation. Behaviours present in code without a test, contract, user confirmation, or regulatory obligation must remain [Observed]. The skill cannot manufacture coverage by re-reading the code more carefully.
+
+input:
+  mode: "urn:ordin:default:rules:modes:observe-mode"
+  prompt: |
+    /spec docs/design/legacy-feed-service.md code-paths: internal/feed
+  context: |
+    docs/design/legacy-feed-service.md exists from a prior `/design` code-evidence run with this Requirements section:
+      Must preserve: (none in initial draft)
+      Observed but not required:
+        - Feed.Fetch returns the latest 50 items in reverse chronological order
+        - Feed.Fetch ignores items older than 30 days
+        - Feed.Fetch deduplicates by item_id
+      Drop candidates: (none)
+      Gaps: (none)
+    The repository contains:
+      - internal/feed/feed.go — Feed struct with Fetch(ctx) ([]Item, error). The implementation does sort items by created_at desc, takes the first 50, filters items older than 30 days, and deduplicates by item_id.
+    There are NO tests anywhere for internal/feed/. There is no OpenAPI document, no .proto, no NATS subject schema, no vendor contract, and no user has confirmed any of these behaviours as intentional during the design interview. The user has not supplied any witness-sources argument.
+
+expected:
+  outcome: proceed
+  containsAll:
+    - "Mode: code-evidence"
+    - "Feed.Fetch"
+    - "[Observed:"
+    - "evidence:"
+  containsNone:
+    - "[Required: Feed.Fetch"           # no witness exists for any of these behaviours
+    - "[Required: latest 50"
+    - "[Required: 30 days"
+    - "[Required: deduplicates"
+    - "witness: test:internal/feed"     # no tests exist; any such citation is fabricated
+    - "witness: contract:"               # no contract exists
+    - "witness: regulation:"             # no regulation cited
+  classificationRules:
+    - "All three Feed.Fetch behaviours are [Observed], never [Required]"
+    - "Each [Observed] entry carries an evidence citation pointing at internal/feed/feed.go"
+    - "If the user has not been interviewed for confirmation in this run, no [Required] tag with a user-confirmation witness appears"
+    - "The skill does not invent a test path or a contract path to fill a witness citation"
+
+pass:
+  predicate: no assertion is tagged [Required] AND every assertion derived from the Observed but not required subsection of the design retains the [Observed] tag AND no fabricated witness citation appears (no reference to a test file, contract file, or regulation that does not exist in the supplied context)
+
+severity: blocking

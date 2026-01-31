@@ -1,0 +1,34 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:documentation:docs-happy-path"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:lifecycle:docs"
+  invariant: /docs writes a concept ladder whose first rung states the problem the system solves before naming any component, every emitted page carries the rung contract (rung, prerequisites, enables, concepts), every structural rung carries a Mermaid diagram in the pack's fence form, and the run report names the pack's build command without running it.
+
+input:
+  mode: "urn:ordin:default:rules:modes:plan-mode"
+  prompt: |
+    /docs ./services/payments depth: standard
+  context: |
+    A documentation pack of class documentation is installed. The target project ./services/payments has source, docs/design and docs/spec. The pack declares a Mermaid diagram fence and a strict build command.
+
+expected:
+  outcome: proceed
+  containsAll:
+    - "rung"
+    - "prerequisites"
+    - "enables"
+    - "concepts"
+    - "Ladder"
+    - "Verify with"
+  containsNone:
+    - "// TODO"
+
+pass:
+  predicate: a page is written per rung AND the first rung states the problem before naming any component AND every page carries the rung contract AND every structural rung carries a Mermaid diagram in the pack's fence form AND the run report names the pack's build command AND the command is not run
+
+severity: blocking

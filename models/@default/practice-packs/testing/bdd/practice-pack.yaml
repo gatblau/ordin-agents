@@ -1,0 +1,101 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+
+metadata:
+  id: "urn:ordin:default:practice-packs:testing:bdd"
+  name: Behaviour-driven development
+  version: 1.0.0
+  owner: gatblau
+  # pack class lets a profile require "≥1 testing pack" by class.
+  class: testing
+  # Descriptive metadata.
+  description: "BDD test shape: Given, When, Then scenarios as the unit of truth, one per boundary behaviour, backed by a real dependency. Names no language."
+  category: sdlc
+  audience:
+    roles:
+      - developer
+      - architect
+    domains:
+      - backend-services
+  useCases:
+    - title: Specification-by-example test suite
+      summary: Supply Gherkin scenario conventions + the boundary rule to testgen/codegen; the step runner is the active library pack's idiom.
+
+description: >
+  Test-approach practice carrying the BDD / Specification-by-Example strategy:
+  Given/When/Then .feature scenarios are the executable specification, authored
+  outside-in and business-readable, one scenario per boundary behaviour backed
+  by a real (containerised) dependency. Carries the test-shape only — the
+  *strategy* slice of testingPatterns plus the scenario conventions and a worked,
+  language-neutral .feature. It names no language, runner, or container library:
+  the concrete step runner and container library (the binding that executes the
+  scenarios) are the active library pack's idiom, referred to abstractly.
+  Consumed by the cspa workspace's testgen and codegen skills via "active
+  Practice Pack" indirection; the same .feature composes with any stack +
+  library pack unchanged.
+
+
+appliesTo:
+  workspaces:
+    - "urn:ordin:default:workspaces:cspa-431@^1.0.0"
+
+# Strategy slice of testingPatterns (the WHAT). The runner that executes the
+# scenarios + the container library are the active library pack's idiom; where
+# step files live is the active stack pack's layout. This pack names no tool.
+testingPatterns:
+  shape: scenario-driven         # scenarios drive all levels; the pyramid/trophy proportion is orthogonal
+  scenarioStyle: bdd             # Given/When/Then .feature scenarios are the unit of truth
+  levels:
+    - scenario                   # the executable specification
+    - integration                # backs each scenario with a real dependency
+  coveragePhilosophy: >
+    Scenario coverage of behaviours is primary — every boundary behaviour has a
+    Given/When/Then scenario. Line coverage is secondary and computed by the
+    active stack pack's coverage command.
+  boundaryRule: >
+    One Given/When/Then scenario per boundary behaviour, backed by a real
+    (containerised) dependency. No mocking a containerisable service.
+  scenarioConventions: scenario-conventions.md
+
+skillActivations:
+  - skill: testgen
+    when: "files matching **/*.feature are in scope"
+
+antiPatterns:
+  - id: imperative-steps-coupled-to-ui
+    reason: "Steps that drive buttons/selectors describe HOW, not WHAT; they break on any UI change and stop being a specification."
+  - id: mocking-a-containerisable-dependency
+    reason: "A scenario backed by a mock proves nothing about production; the boundary rule requires a real dependency."
+  - id: assertions-on-implementation-detail
+    reason: "Then-steps asserting internals couple the spec to structure; assert on observable, business-readable outcomes."
+
+references:
+  - strategy.md             # scenarios as the unit of truth; the boundary rule
+  - scenario-conventions.md # outside-in, business-readable authoring rules
+  - anti-patterns.md        # the scenario failures to avoid
+  - features/orders.feature # worked, language-neutral example (no runner named)
+
+contextLoading:
+  eager:
+    - strategy.md
+    - anti-patterns.md
+  lazy:
+    - scenario-conventions.md
+    - features/orders.feature
+
+conflictResolution:
+  # Above a stack pack on the testingPatterns seam only on an unavoidable overlap
+  # (default: none). Below an architecture pack.
+  overridePriority: 30
+
+governance:
+  riskTier: 2
+  approval:
+    requiredFrom:
+      - gatblau
+  reviewDate: 2026-01-31
+
+# Composition with overlays:
+# - Brand/jurisdiction overlays may STRENGTHEN this strategy (mandate an audit-
+#   trail scenario for money-moving operations); they may not weaken safety-
+#   relevant claims. This pack names no language; language overlays govern prose.

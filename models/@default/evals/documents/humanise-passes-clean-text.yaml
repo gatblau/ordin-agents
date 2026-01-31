@@ -1,0 +1,30 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:documents:humanise-passes-clean-text"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:skills:documents:humanise"
+  invariant: Text that carries none of the habits of machine-written prose passes the check and comes back word for word; humanise rewrites only what fails.
+
+input:
+  mode: "urn:ordin:default:rules:modes:plan-mode"
+  prompt: |
+    Make this read as a person wrote it: "Customers can return an item within 30 days if it is unused and in its original packaging. Kestrel Freight refunds the card within 5 working days. A customer who returns an item after 30 days gets a credit note for the same amount, valid for a year."
+  context: |
+    No other documents.
+
+expected:
+  outcome: report
+  containsAny:
+    - "passed"
+    - "unchanged"
+  containsNone:
+    - "rewritten.md"
+
+pass:
+  predicate: the reply says the text passed the check as it arrived and leaves it word for word; it writes no rewritten file, reports no pattern as found, and says how the check was made (scan.py or reading)
+
+severity: blocking

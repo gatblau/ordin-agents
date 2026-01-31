@@ -1,0 +1,15 @@
+apiVersion: ai.enterprise/v1
+kind: style-overlay
+
+metadata:
+  id: "urn:ordin:default:overlays:style:teaching"
+  name: Teaching
+  version: 1.0.0
+  owner: gatblau
+  description: "Sets a teaching style: explains the why, names the trade-offs, and defines terms as it goes. For mentoring and onboarding."
+
+style: teaching   # register tag — see urn:ordin:default:rules:layer:output-style
+
+addRules:
+  - "urn:ordin:default:overlays:style:teaching:set-style"
+  - "urn:ordin:default:rules:layer:output-style"

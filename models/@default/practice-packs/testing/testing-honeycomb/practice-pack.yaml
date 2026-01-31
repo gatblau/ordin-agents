@@ -1,0 +1,100 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+
+metadata:
+  id: "urn:ordin:default:practice-packs:testing:testing-honeycomb"
+  name: Testing honeycomb
+  version: 1.0.0
+  owner: gatblau
+  # pack class lets a profile require "≥1 testing pack" by class.
+  class: testing
+  # Descriptive metadata.
+  description: "Testing honeycomb for service systems: few unit tests, a wide integration band on service-to-service work, few end-to-end. Names no language."
+  category: sdlc
+  audience:
+    roles:
+      - developer
+      - architect
+    domains:
+      - backend-services
+  useCases:
+    - title: Service-collaboration-centred test suite
+      summary: Supply the collaboration-centred taxonomy + boundary rule to testgen/codegen, realised in the active stack pack's idiom.
+
+description: >
+  Test-approach practice carrying the Testing Honeycomb strategy for
+  service-oriented systems: few isolated unit tests, a wide integration band
+  centred on service-to-service collaboration (each outbound dependency exercised
+  against a real or contract-stubbed counterpart), and few end-to-end tests.
+  Carries the test-shape only — the *strategy* slice of testingPatterns. It names
+  no language, runner, or container library: the concrete test and container
+  tooling are the active stack pack's idiom, referred to abstractly. Consumed by
+  the cspa workspace's testgen and codegen skills via "active Practice Pack"
+  indirection; composes with any stack pack.
+
+
+appliesTo:
+  workspaces:
+    - "urn:ordin:default:workspaces:cspa-431@^1.0.0"
+
+# Strategy slice of testingPatterns (the WHAT). The idiom (which test and
+# container/contract tools realise each collaboration) is the active stack pack's;
+# this pack names no tool.
+testingPatterns:
+  shape: honeycomb               # few unit · wide integration (collaboration-centred) · few e2e
+  levels:
+    - unit
+    - integration
+    - e2e
+  coveragePhilosophy: >
+    Service-to-service integration is the primary confidence layer — each
+    collaboration between this service and another is exercised. Unit tests cover
+    complex algorithms only; end-to-end is kept minimal because broad e2e suites
+    are slow and flaky across services.
+  boundaryRule: >
+    An integration test on every service-to-service collaboration (each outbound
+    dependency this service calls), backed by a real (containerised) counterpart
+    where it can be containerised, or a contract-stubbed counterpart honouring the
+    same wire contract where it cannot. No mocking a containerisable service.
+  scenarioStyle: xunit
+
+skillActivations:
+  - skill: testgen
+    when: "test directories, boundary-crossing functions, or service-contract artefacts are in scope"
+
+antiPatterns:
+  - id: broad-slow-flaky-e2e-suites
+    reason: "Large end-to-end suites across services are slow and flaky; in the honeycomb, confidence comes from collaboration integration tests, not broad e2e."
+  - id: mocking-a-containerisable-dependency
+    reason: "A collaboration backed by a mock proves nothing about the real interaction; use a real or contract-stubbed counterpart."
+  - id: unit-testing-glue-instead-of-collaboration
+    reason: "Unit-testing the wiring between services misses the integration risk; test the collaboration against a real or contract-stubbed counterpart."
+
+references:
+  - strategy.md        # the honeycomb shape and the collaboration focus
+  - levels.md          # what each band covers; collaboration integration as primary
+  - anti-patterns.md   # the shape failures to avoid
+
+contextLoading:
+  eager:
+    - strategy.md
+    - anti-patterns.md
+  lazy:
+    - levels.md
+
+conflictResolution:
+  # Above a stack pack on the testingPatterns seam only on an unavoidable overlap
+  # (default: none). Below an architecture pack.
+  overridePriority: 30
+
+governance:
+  riskTier: 2
+  approval:
+    requiredFrom:
+      - gatblau
+  reviewDate: 2026-01-31
+
+# Composition with overlays:
+# - Brand/jurisdiction overlays may STRENGTHEN this strategy (mandate a contract
+#   test for every published interface); they may not weaken safety-relevant
+#   claims. This pack names no language; language overlays govern prose.

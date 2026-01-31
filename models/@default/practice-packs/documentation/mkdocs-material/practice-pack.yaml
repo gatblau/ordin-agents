@@ -1,0 +1,132 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+
+metadata:
+  id: "urn:ordin:default:practice-packs:documentation:mkdocs-material"
+  name: MkDocs Material
+  version: 1.0.0
+  owner: gatblau
+  # Descriptive metadata.
+  description: "MkDocs Material: where a documentation site lives, how its navigation is declared, the callout and diagram syntax it renders, and the command that builds it strictly."
+  category: sdlc
+  # `documentation` is an authored pack class
+  # (vocabulary/pack-class.yaml). A site-generator binding, orthogonal to the
+  # language stack pack — it carries no build, lint or test step for the target
+  # project's own source, only the command that builds the documentation site.
+  class: documentation
+  audience:
+    roles:
+      - developer
+      - architect
+    domains:
+      - software-engineering
+      - technical-writing
+  useCases:
+    - title: Teaching documentation site
+      summary: Supply the MkDocs Material site layout, navigation shape, callout and Mermaid syntax, and strict build command to the docsgen skill via "active documentation pack" indirection; docsgen names no site generator, this pack does.
+
+description: >
+  Site-generator binding for MkDocs Material. Supplies every generator-specific
+  value the `docsgen` skill is forbidden from knowing: where the documentation
+  directory sits relative to the target project root, which file carries the
+  navigation, whether per-page front matter survives, the exact fence that
+  renders a Mermaid diagram, the callout syntax and its available kinds, and the
+  strict build command that fails on a warning or a broken internal link.
+  Consumed through "active documentation pack" indirection — `docsgen` asks for
+  the conventions this pack declares and stops when no pack of the class is
+  installed, because a site's directory layout and navigation file have no
+  generator-neutral form. Carries no language toolchain: the target project's
+  own build, lint and test commands come from its stack pack.
+
+appliesTo:
+  workspaces:
+    - "urn:ordin:default:workspaces:cspa-431@^1.0.0"
+
+# ---- documentation-site items (this family writes these; no language toolchain) ----
+# Read field-by-field by docsgen. Every field is required; none carries a
+# default, because a missing value has no generator-neutral fallback.
+documentationConventions:
+  # Where the site lives, relative to the target project root. No leading slash,
+  # no parent-directory segment — docsgen refuses either before it writes.
+  siteRoot: docs
+  configFile: mkdocs.yml
+
+  navigation:
+    # MkDocs declares page order in the `nav:` block of mkdocs.yml, not by
+    # filesystem order, so docsgen writes that block as well as the pages.
+    declaredIn: manifest
+    ordering: explicit
+
+  # MkDocs parses a YAML front-matter block and exposes it as page.meta, so the
+  # rung contract survives as front matter rather than as visible page text.
+  pageFrontMatter: yaml
+
+  diagramFence:
+    language: mermaid
+    # The literal fence opener. Renders as a diagram only once the
+    # markdown_extensions in mermaid-setup.md are present; without them MkDocs
+    # prints the block as code.
+    form: "```mermaid"
+
+  callout:
+    # MkDocs Material admonitions. `<kind>` is one of the kinds below; the title
+    # is optional but docsgen always supplies one.
+    form: '!!! <kind> "<title>"'
+    kinds:
+      - note
+      - abstract
+      - info
+      - tip
+      - warning
+      - example
+      - question
+
+  # Strict build: MkDocs promotes every warning to an error under --strict,
+  # which includes a relative link that resolves to no page.
+  buildCommand: mkdocs build --strict
+  linkCheck: strict
+
+  # Concept count above which docsgen presents the ladder and waits for the
+  # operator to confirm it. Twelve is the point at which the rendered navigation
+  # stops reading as a learning path and starts reading as an index.
+  sizeThreshold: 12
+
+skillActivations:
+  - skill: docsgen
+    when: "a documentation site is being authored for the target project"
+
+references:
+  - site-layout.md        # the directory tree, and where each ladder section is written
+  - navigation.md         # the nav: block shape and the one-entry-per-page rule
+  - authoring-syntax.md   # callouts, content tabs, and the prerequisite block
+  - mermaid-setup.md      # the markdown_extensions a Mermaid fence needs before it renders
+  - build-and-verify.md   # mkdocs build --strict, what it fails on, and the prerequisites
+
+contextLoading:
+  eager:
+    - site-layout.md
+    - authoring-syntax.md
+  lazy:
+    - navigation.md
+    - mermaid-setup.md
+    - build-and-verify.md
+
+conflictResolution:
+  # Below an architecture pack (50). A documentation pack writes only site-shape
+  # items, so an overlap with any other class is not expected; this value is a
+  # backstop, not a load-bearing ordering.
+  overridePriority: 30
+
+governance:
+  riskTier: 2
+  approval:
+    requiredFrom:
+      - gatblau
+  reviewDate: 2026-01-31
+
+# Composition with overlays:
+# - Language overlays govern the prose docsgen writes into the site; they do not
+#   touch the syntax values above, which are generator grammar rather than prose.
+# - Style overlays do not reach docsgen output: the jargon ban and teaching
+#   ladder are skill-bound, because the style axis admits one active overlay and
+#   a workspace may have none.

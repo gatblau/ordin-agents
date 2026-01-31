@@ -1,0 +1,29 @@
+apiVersion: ai.enterprise/v1
+kind: vocabulary
+metadata:
+  id: "urn:ordin:default:vocabulary:pack-class"
+  name: Pack class vocabulary
+  version: 1.0.0
+  owner: gatblau
+# The controlled vocabulary of PracticePack `class` codes. A profile requires packs by class.
+# Adding a class is authoring a term here. Validated fail-closed at ingest against this set.
+axis: pack-class
+terms:
+  - code: stack
+    label: Stack
+    description: Language/runtime toolchain — build, lint, test commands and the coverage floor.
+  - code: database
+    label: Database
+    description: Database engine binding — engine-specific migration templates, scratch-DB validation, and SQL/DDL audit rule-sets (Postgres, MySQL, SQLite, …). Carries no language toolchain.
+  - code: architecture
+    label: Architecture
+    description: System-shape reference architecture (hexagonal, event-driven, …).
+  - code: library
+    label: Library
+    description: Concrete dependency choices — router, client, test tooling.
+  - code: testing
+    label: Testing
+    description: Testing strategy and pyramid shape.
+  - code: documentation
+    label: Documentation
+    description: Documentation site generator binding — site layout, navigation shape, callout and diagram syntax, and the strict build command. Carries no language toolchain.

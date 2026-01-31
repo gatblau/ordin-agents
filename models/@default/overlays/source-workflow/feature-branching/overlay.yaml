@@ -1,0 +1,15 @@
+apiVersion: ai.enterprise/v1
+kind: source-workflow-overlay
+
+metadata:
+  id: "urn:ordin:default:overlays:source-workflow:feature-branching"
+  name: Feature branches
+  version: 1.0.0
+  owner: gatblau
+  description: "Sets the git workflow to feature branches: one short-lived branch per change off main, merged back by pull request."
+
+strategy: feature-branching   # see urn:ordin:default:rules:layer:branching-strategy
+
+addRules:
+  - "urn:ordin:default:overlays:source-workflow:feature-branching:set-branching-strategy"
+  - "urn:ordin:default:rules:layer:branching-strategy"

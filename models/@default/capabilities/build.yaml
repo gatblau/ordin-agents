@@ -1,0 +1,74 @@
+apiVersion: ai.enterprise/v1
+kind: capability
+metadata:
+  id: "urn:ordin:default:capabilities:build"
+  name: Build capability
+  description: "Breaks an approved spec into a phased plan, then builds the code, migrations, and tests for one phase at a time."
+  version: 1.1.0
+  owner: gatblau
+
+purpose: >
+  Decompose an approved spec set (or RFC, RCA, or sync-check finding)
+  into a phased plan, then implement the code, schema migrations
+  and tests for one phase per invocation. Carries the load-bearing
+  Phase C4 verification gate (build + 70% coverage + lint).
+  Covers *move 3 (Plan increments)* and *move 4 (Apply increments)*
+  of the four-move CSPA loop.
+
+composedOf:
+  skills:
+    - "urn:ordin:default:skills:quality:codegen"
+    - "urn:ordin:default:skills:schema:schemagen"
+  commands:
+    - "urn:ordin:default:commands:lifecycle:breakdown"       # move 3 — plan increments
+    - "urn:ordin:default:commands:lifecycle:apply"           # move 4 — apply increments (drives codegen, schemagen, testgen)
+    - "urn:ordin:default:commands:lifecycle:plan-index"      # derived plan roll-up — breakdown adds a row, apply refreshes it
+  modes:
+    - "urn:ordin:default:rules:modes:plan-mode"
+    - "urn:ordin:default:rules:modes:patch-mode"
+    - "urn:ordin:default:rules:modes:execute-mode"
+    - "urn:ordin:default:rules:modes:review-mode"
+    - "urn:ordin:default:rules:modes:explain-mode"
+    - "urn:ordin:default:rules:modes:escalate-mode"
+  rules:
+    - "urn:ordin:default:rules:orchestrators:working-modes"
+    - "urn:ordin:default:rules:layer:identifier-verification"
+    - "urn:ordin:default:rules:layer:spec-anchors"  # codegen emits the anchors
+    - "urn:ordin:default:rules:layer:sql-safety"
+
+toolBindings: []
+
+defaultToolPolicy:
+  allowed:
+    - filesystem.write.source
+    - shell.execute.allowlisted
+  requiresHumanApproval:
+    - migration.destructive
+  prohibited: []
+  # Universal safety floor (git/PR/publish/migration mutations) is asserted once
+  # at the workspace level; not redeclared here.
+
+verificationGates:
+  - name: phase-c4-blocking
+    skill: "urn:ordin:default:skills:quality:codegen"
+    requirements:
+      - build.passes
+      - tests.pass
+      - coverage.minimum: 0.70
+      - lint.clean
+    failureBehaviour: stop-fix-rerun
+  - name: phase-e-self-audit
+    skill: "urn:ordin:default:skills:quality:codegen"
+    failureBehaviour: stop-with-failing-items
+  - name: scratch-roundtrip
+    skill: "urn:ordin:default:skills:schema:schemagen"
+    failureBehaviour: stop-and-report
+  - name: destructive-safeguard
+    skill: "urn:ordin:default:skills:schema:schemagen"
+    triggersOn: destructive-migration
+    failureBehaviour: stop-without-safeguard-waiver
+
+outputs:
+  - source files (internal/, pkg/, cmd/, src/)
+  - test files
+  - migration up/down pairs

@@ -1,0 +1,80 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+
+metadata:
+  id: "urn:ordin:default:practice-packs:library:go:echo"
+  name: Echo for Go
+  version: 1.0.0
+  owner: gatblau
+  # Descriptive metadata.
+  description: "Go HTTP router choice: the Echo v4 router and its Swag annotations. Just the router decision; the rest comes from the active Go stack pack."
+  category: sdlc
+  # class `library` carries concrete dependency choices, disjoint
+  # from the stack pack's language conventions. A profile may require "≥1 library
+  # pack" by class.
+  class: library
+  audience:
+    roles:
+      - developer
+      - architect
+    domains:
+      - backend-services
+    # Unlike an architecture pack, a library pack IS language-specific — the
+    # dependency it blesses is a Go module.
+    languages:
+      - go
+  useCases:
+    - title: Go HTTP service router choice
+      summary: Bless the Echo v4 router and its Swag annotation flavour for the workspace's codegen/testgen skills; the Go language conventions and file layout are the active stack pack's.
+
+description: >
+  Concrete HTTP-router dependency for Go services. Owns one decision — the Echo
+  v4 router (github.com/labstack/echo/v4) — as a declared approvedLibraries
+  entry, plus the router-specific handler and Swag annotation conventions a
+  codegen run needs. It carries the LIBRARY choice only: the Go language
+  conventions, repo layout, build commands and annotation mechanics are the
+  active stack pack's (disjoint seam, per practice-packs/README.md). Consumed by
+  the cspa workspace's codegen and testgen skills via "active Practice Pack"
+  indirection; composes with the stack/go pack and any architecture pack
+  unchanged. Swapping this pack for a different router pack (e.g. chi) changes
+  the dependency without touching the stack pack.
+
+appliesTo:
+  workspaces:
+    - "urn:ordin:default:workspaces:cspa-431@^1.0.0"
+
+# The concrete library this pack blesses. Disjoint from the stack pack's list
+# (the stack pack names no router) and from an architecture pack's abstract
+# "platform broker client". Version is pinned by the consuming project's go.mod,
+# not here (mirrors the schema's name+reason shape).
+approvedLibraries:
+  required:
+    - name: "github.com/labstack/echo/v4"
+      reason: "the blessed HTTP router for Go services; its handler signature and middleware shape are the router conventions in router-conventions.md"
+  blocked: []
+
+references:
+  - router-conventions.md  # codegen: Echo handler signature + Swag annotation flavour
+
+contextLoading:
+  eager:
+    - router-conventions.md
+
+conflictResolution:
+  # Library packs write approvedLibraries — disjoint from the stack pack, so this
+  # never fires for a well-allocated pair. Set only as the backstop on an
+  # unavoidable overlap (default: none). Below an architecture pack (50).
+  overridePriority: 35
+
+governance:
+  riskTier: 2
+  approval:
+    requiredFrom:
+      - gatblau
+  reviewDate: 2026-01-31
+
+# Composition with overlays:
+# - Brand overlays may block this router in favour of a mandated one, or add a
+#   brand-specific middleware requirement; they may not weaken safety claims.
+# - This pack names a Go module; language overlays govern prose only, not the
+#   dependency choice.

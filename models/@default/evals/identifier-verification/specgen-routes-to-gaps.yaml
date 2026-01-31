@@ -1,0 +1,33 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:identifier-verification:specgen-routes-to-gaps"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:skills:quality:specgen"
+  invariant: An unverifiable identifier surfaced during specgen Phase 3 lands in the Component spec's Gaps section, not in the Public Interface or Data Model body.
+
+input:
+  mode: "urn:ordin:default:rules:modes:plan-mode"
+  prompt: |
+    Generate the Component spec for ProjectRepository. The design document mentions a "ProjectStore" dependency but I am not sure of its exact interface.
+  context: |
+    Design doc says: "ProjectRepository depends on ProjectStore for persistence."
+    No ProjectStore type, file, or package exists in the repo.
+
+expected:
+  outcome: proceed-with-gaps
+  containsAny:
+    - "#### Gaps"
+    - "ProjectStore"
+    - "cannot verify"
+  containsNone:
+    - "ProjectStore.Save("              # invented signature
+    - "ProjectStore.FindByID("          # invented signature
+
+pass:
+  predicate: ProjectStore appears under Gaps with a "missing identifier" classification AND no invented signature appears under Public Interface
+
+severity: blocking

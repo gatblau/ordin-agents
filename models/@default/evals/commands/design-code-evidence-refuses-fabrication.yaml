@@ -1,0 +1,46 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:commands:design-code-evidence-refuses-fabrication"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:intent:design"
+  invariant: /design in code-evidence mode does not fabricate identifiers, intent, or requirements from naming patterns, comments, or partial signals. Suspected behaviours without evidence land in Gaps; behaviours without a witness do not appear in Must preserve.
+
+input:
+  mode: "urn:ordin:default:rules:modes:observe-mode"
+  prompt: |
+    /design legacy-auth-service mode: code-evidence code-paths: internal/auth
+  context: |
+    Empty docs/design/ directory. The internal/auth/ directory contains:
+      - service.go — declares package auth and a struct Service{} with no methods yet implemented; the file is mostly TODO comments referencing planned methods Authenticate, Refresh, Revoke.
+      - // TODO: handle MFA enrolment — comment in service.go.
+      - // TODO: integrate with Okta SCIM — comment in service.go.
+    No tests, no contracts, no other files. There is no Authenticate, Refresh, or Revoke method actually implemented anywhere in the repo.
+
+expected:
+  outcome: proceed
+  containsAll:
+    - "Mode: code-evidence"
+    - "## Requirements"
+    - "### Gaps"
+  containsNone:
+    - "Authenticate("        # not implemented; cannot be cited as evidence
+    - "Refresh("             # not implemented
+    - "Revoke("              # not implemented
+    - "MFA"                  # only mentioned in a TODO comment — comments are not evidence of intent
+    - "Okta SCIM"            # only mentioned in a TODO comment
+    - "Must preserve: Authenticate"
+    - "Must preserve: MFA"
+  classificationRules:
+    - "The Service struct (with no methods) appears in the design body with an evidence tag pointing at service.go"
+    - "Authenticate / Refresh / Revoke do not appear as Must preserve (no witness, not even an implementation)"
+    - "If Authenticate / Refresh / Revoke are mentioned at all, they appear only in Gaps with the missing-implementation note"
+    - "MFA and Okta SCIM appear only in Gaps with 'comment-only signal; not evidence of intent' or are omitted entirely"
+
+pass:
+  predicate: response refuses to invent functions or behaviours from naming patterns or TODO comments AND any references to unimplemented or comment-only behaviour land in Gaps AND no comment-derived behaviour appears in Must preserve or in the design body
+
+severity: blocking

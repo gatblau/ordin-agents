@@ -1,0 +1,32 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:documentation:docs-names-no-product"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:lifecycle:docs"
+  invariant: Across a run against a target project, no output names ordin, cspa-431, or any artefact of the composing workspace itself. The site describes only the target project and its system, never the tool that wrote it.
+
+input:
+  mode: "urn:ordin:default:rules:modes:plan-mode"
+  prompt: |
+    /docs ./services/payments
+  context: |
+    A documentation pack is installed. The composing workspace is cspa-431. The target project ./services/payments is unrelated to the tooling; docsgen writes a site about the payments system.
+
+expected:
+  outcome: proceed
+  containsAll:
+    - "payment"
+  containsNone:
+    - "ordin"
+    - "cspa-431"
+    - "docsgen"
+    - "practice pack"
+
+pass:
+  predicate: the emitted site and the run report describe only the target project AND no page names ordin, cspa-431, or any artefact of the composing workspace
+
+severity: blocking

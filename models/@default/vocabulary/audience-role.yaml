@@ -1,0 +1,35 @@
+apiVersion: ai.enterprise/v1
+kind: vocabulary
+metadata:
+  id: "urn:ordin:default:vocabulary:audience-role"
+  name: Audience role vocabulary
+  version: 1.0.0
+  owner: gatblau
+# The controlled vocabulary of `audience.roles` codes, the
+# primary audience facet. Validated fail-closed at ingest against this set.
+axis: audience-role
+terms:
+  - code: developer
+    label: Developer
+    description: Software engineers.
+  - code: product-owner
+    label: Product owner
+    description: Product owners and product managers.
+  - code: architect
+    label: Architect
+    description: Solution and enterprise architects.
+  - code: compliance
+    label: Compliance
+    description: Compliance and regulatory roles.
+  - code: finance
+    label: Finance
+    description: Finance and FP&A roles.
+  - code: ops
+    label: Ops
+    description: Operations and SRE.
+  - code: risk
+    label: Risk
+    description: Risk roles.
+  - code: brand-tech
+    label: Brand tech
+    description: Brand-technology roles.

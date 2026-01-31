@@ -1,0 +1,15 @@
+apiVersion: ai.enterprise/v1
+kind: style-overlay
+
+metadata:
+  id: "urn:ordin:default:overlays:style:exec-brief"
+  name: Executive brief
+  version: 1.0.0
+  owner: gatblau
+  description: "Sets an executive-brief style: the decision first, kept to one screen, with jargon put in business terms. For product, finance, and risk readers."
+
+style: exec-brief   # register tag — see urn:ordin:default:rules:layer:output-style
+
+addRules:
+  - "urn:ordin:default:overlays:style:exec-brief:set-style"
+  - "urn:ordin:default:rules:layer:output-style"

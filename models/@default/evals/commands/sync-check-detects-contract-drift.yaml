@@ -1,0 +1,36 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:commands:sync-check-detects-contract-drift"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:sync:sync-check"
+  invariant: /sync-check correctly labels CONTRACT-DRIFT findings — situations where the spec has been updated but the code has not yet caught up. Resolution suggestion routes to /apply (re-run for the affected component).
+
+input:
+  mode: "urn:ordin:default:rules:modes:observe-mode"
+  prompt: |
+    /sync-check scope: spec-code
+  context: |
+    docs/spec/components/user-service.md was updated to rename error code USER_NOT_FOUND to USER_NOT_FOUND_V2 and to add a new HTTP 422 response for the GET /v1/users/{id} route. internal/user/handler.go still emits USER_NOT_FOUND and never returns 422.
+
+expected:
+  outcome: proceed
+  containsAll:
+    - "CONTRACT-DRIFT"
+    - "USER_NOT_FOUND_V2"
+    - "/v1/users/{id}"
+    - "internal/user/handler.go"
+    - "/apply"           # remediation suggestion
+  drift:
+    contractDrift: ">=2"   # error code rename + new 422 response
+  verdict: dirty
+  toolsForbidden:
+    - filesystem.write.source
+
+pass:
+  predicate: response contains at least two CONTRACT-DRIFT findings (error-code rename + missing 422) AND remediation handoff names /apply AND verdict is "dirty"
+
+severity: blocking

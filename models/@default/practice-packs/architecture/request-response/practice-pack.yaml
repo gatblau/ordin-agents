@@ -1,0 +1,203 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+
+metadata:
+  id: "urn:ordin:default:practice-packs:architecture:request-response"
+  name: Request and response services
+  version: 1.0.0
+  # Architecture-team owned — NOT the workspace owner (README ownership boundary).
+  owner: architecture-guild
+  # Descriptive metadata.
+  description: "Synchronous request and response microservices: a gateway and services calling each other over HTTP or RPC, with timeouts, retries, and circuit breakers. Names no language or framework."
+  category: sdlc
+  # pack class lets a profile require "≥1 architecture pack" by class.
+  class: architecture
+  # roles/domains only — NO `languages` (the language pairing is the Workspace
+  # Profile's, never an architecture pack's). Roles drawn from the controlled
+  # vocabulary (acetypes.AudienceRoles): developer, architect.
+  audience:
+    roles:
+      - developer
+      - architect
+    domains:
+      - backend-services
+  useCases:
+    - title: Synchronous microservice shape
+      summary: Supply the edge/gateway-plus-services reference architecture, client-side resilience design patterns, and API interface conventions to the workspace's codegen/designgen skills; the concrete service-client library and language are the stack pack's and the Workspace Profile's.
+
+description: >
+  Synchronous request/response reference architecture for microservices that call
+  each other over HTTP/RPC. Carries the edge/gateway-plus-services topology, the
+  client-side resilience patterns (timeout, retry budget, circuit breaker,
+  bulkhead isolation), the idempotent-write-endpoint pattern, and the API
+  interface conventions (versioning, error-envelope shape, pagination contract,
+  status-code map). Its defining stance is that every cross-service call carries a
+  timeout, a retry budget, and a circuit breaker, and that no two services share a
+  database. It names no language, framework or client product: "a resilient
+  service-client abstraction" is referred to abstractly, so this pack composes
+  with any stack pack that supplies a concrete client. Consumed by the cspa
+  workspace's codegen, designgen and runbookgen skills via "active Practice Pack"
+  indirection; the language pairing is declared by the Workspace Profile, not here.
+
+appliesTo:
+  workspaces:
+    - "urn:ordin:default:workspaces:cspa-431@^1.0.0"
+
+# ---- architecture-side items (this family writes these; no stack-side item) ----
+
+# Edge/gateway + services topology, a language-neutral service template, and the
+# binding ADRs. Bodies live in the cited reference files.
+referenceArchitecture:
+  diagrams:
+    - reference-architecture/topology.md
+  serviceTemplate: reference-architecture/service-template.md
+  adrs:
+    - id: synchronous-by-default
+      statement: This architecture serves request/response interactions where the caller needs an answer to proceed; work that does not need an answer belongs on the event-driven axis instead.
+    - id: one-service-one-datastore
+      statement: Each service owns its datastore; no two services share a database. Cross-service data is obtained by calling the owning service, never by reaching into its tables.
+    - id: client-side-resilience-required
+      statement: Every cross-service call carries a timeout, a retry budget, and a circuit breaker. A call without all three is a resilience-omission defect.
+
+# Each required/recommended entry carries a `when` predicate so it applies
+# conditionally (PACK_PATTERN_NO_WHEN clears). Bodies are the cited reference
+# files where one exists.
+designPatterns:
+  required:
+    - id: client-side-resilience
+      ref: patterns/resilience.md
+      when: "a service calls another service"
+    - id: idempotent-write-endpoint
+      ref: patterns/idempotent-write.md
+      when: "a write endpoint may be retried"
+  recommended:
+    - id: api-gateway-edge
+      when: "external clients enter the mesh and need a single authenticated, rate-limited edge"
+    - id: bulkhead-isolation
+      when: "one slow upstream must not exhaust the caller's whole connection or thread budget"
+  prohibited:
+    - id: synchronous-call-chain-without-timeout
+      reason: "an unbounded call chain lets one slow downstream stall every caller above it; bound every hop with a timeout and a retry budget"
+    - id: shared-database-across-services
+      reason: "couples services through a shared schema; each service owns its datastore and is reached only through its API"
+
+# Shape contracts, abstract — not a wire schema. Bodies: api/versioning.md,
+# api/error-envelope.md, api/pagination.md.
+interfaceConventions:
+  api:
+    versioning: "major version in the path (/v<major>); a breaking change increments the major, additive change does not"
+    errorEnvelope:
+      requiredFields:
+        - code
+        - message
+        - traceId
+      ref: api/error-envelope.md
+    pagination:
+      style: cursor
+      requiredParams:
+        - cursor
+        - limit
+      responseFields:
+        - items
+        - nextCursor
+      ref: api/pagination.md
+    statusCodeMap:
+      validationFailure: 400
+      unauthenticated: 401
+      forbidden: 403
+      notFound: 404
+      conflict: 409
+      upstreamUnavailable: 503
+      upstreamTimeout: 504
+    ref: api/versioning.md
+
+# OMIT brokerClientPractice — N/A — synchronous architecture, no broker.
+
+# ARCHITECTURAL libraries only, named abstractly. The logger/driver/test
+# framework are the stack pack's separate list (disjoint seam).
+approvedLibraries:
+  required:
+    - name: "a resilient service-client abstraction (timeout/retry/circuit-breaker)"
+      reason: "the abstract synchronous transport; the concrete client is the stack pack's, but it must surface timeout, retry-budget and circuit-breaker controls"
+  blocked: []
+
+# The WHAT only (required signals). The HOW (logging library, field mechanics)
+# is the stack pack's slice of this seam. Body: observability/required-signals.md.
+observabilityConventions:
+  metrics:
+    requiredCounters:
+      - request_total{route,status}
+      - upstream_call_total{upstream,status}
+      - circuit_breaker_state{upstream}
+  spanAttributes:
+    - http.route
+    - peer.service
+  requiredLogFields:
+    - trace_id
+    - tenant_id
+    - route
+  ref: observability/required-signals.md
+
+# Keyed on ARCHITECTURAL artefacts, never **/*.go (that is the stack pack's).
+skillActivations:
+  - skill: codegen
+    when: "files matching **/proto/**, **/openapi/** or **/handlers/** are in scope"
+  - skill: designgen
+    when: "files matching **/openapi/** or **/handlers/** are in scope"
+
+antiPatterns:
+  - id: chatty-cross-service-calls
+    reason: "fanning a single request into many fine-grained downstream calls multiplies latency and failure surface; coarsen the contract or co-locate the data behind one owner"
+  - id: synchronous-call-chain-without-timeout
+    reason: "an unbounded chain of synchronous calls lets one slow downstream stall every caller above it; every hop needs a timeout and a retry budget"
+  - id: shared-database-across-services
+    reason: "two services writing one schema couples their releases and hides cross-service contracts; each service owns its datastore and is reached only through its API"
+
+references:
+  - principles.md
+  - anti-patterns.md
+  - patterns/resilience.md
+  - patterns/idempotent-write.md
+  - api/versioning.md
+  - api/error-envelope.md
+  - api/pagination.md
+  - observability/required-signals.md
+  - reference-architecture/topology.md
+  - reference-architecture/service-template.md
+
+contextLoading:
+  # Keep the eager set small to avoid context-window flooding (HLD NFR).
+  eager:
+    - principles.md
+    - anti-patterns.md
+  lazy:
+    - patterns/resilience.md
+    - patterns/idempotent-write.md
+    - api/versioning.md
+    - api/error-envelope.md
+    - api/pagination.md
+    - observability/required-signals.md
+    - reference-architecture/topology.md
+    - reference-architecture/service-template.md
+
+conflictResolution:
+  # Above a stack pack ONLY on an unavoidable overlap (default: no overlap, so
+  # this never fires for a well-allocated stack pack). Architecture outranks
+  # stack on the rare genuine clash (README §"two seams").
+  overridePriority: 50
+
+governance:
+  riskTier: 2
+  approval:
+    requiredFrom:
+      - architecture-guild
+  # observabilityConventions signal set is authored as proposed and flagged for
+  # platform/observability-team ratification at this review (Phase 1 OQ-3).
+  reviewDate: 2026-01-31
+
+# Composition with overlays:
+# - Brand/jurisdiction overlays may STRENGTHEN this pack (block a library,
+#   tighten the status-code map, mandate an extra required signal); they may not
+#   weaken safety-relevant claims (client-side resilience, idempotent writes,
+#   one-service-one-datastore).
+# - This pack names no language; language overlays govern prose only.

@@ -1,0 +1,184 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+
+metadata:
+  id: "urn:ordin:default:practice-packs:architecture:hexagonal"
+  name: Ports and adapters
+  version: 1.0.0
+  # Architecture-team owned — NOT the workspace owner (README ownership boundary).
+  owner: architecture-guild
+  # Descriptive metadata.
+  description: "Hexagonal, or ports and adapters: a domain core that depends on nothing, with adapters plugged in at the edges. Names no language or framework."
+  category: sdlc
+  # pack class lets a profile require "≥1 architecture pack" by class.
+  class: architecture
+  # roles/domains only — NO `languages` (the language pairing is the Workspace
+  # Profile's, never an architecture pack's). Roles drawn from the controlled
+  # vocabulary (acetypes.AudienceRoles): developer, architect.
+  audience:
+    roles:
+      - developer
+      - architect
+    domains:
+      - backend-services
+  useCases:
+    - title: Hexagonal service shape
+      summary: Supply the ports-and-adapters reference architecture, the inward dependency rule, the port/adapter design patterns, and the boundary-translation conventions to the workspace's codegen/designgen skills; the concrete wiring library and language are the stack pack's and the Workspace Profile's.
+
+description: >
+  Hexagonal (ports-and-adapters) reference architecture for services with a pure
+  domain core. Carries the dependency-direction rule (everything points inward,
+  toward the core), the port and adapter design patterns (repository port, use-case
+  application service, dependency inversion at the boundary), the boundary-translation
+  conventions (DTO ↔ domain-entity mapping, error translation at the adapter edge),
+  the required observability signals emitted at adapters only, and the architectural
+  anti-patterns that keep the core pure. It names no language, framework or wiring
+  product: "a dependency-wiring abstraction" is referred to abstractly, so this pack
+  composes with any stack pack that supplies a concrete one. Consumed by the cspa
+  workspace's codegen, designgen and runbookgen skills via "active Practice Pack"
+  indirection; the language pairing is declared by the Workspace Profile, not here.
+
+appliesTo:
+  workspaces:
+    - "urn:ordin:default:workspaces:cspa-431@^1.0.0"
+
+# ---- architecture-side items (this family writes these; no stack-side item) ----
+
+# Core + ports + driving/driven adapters with arrows pointing inward, a
+# language-neutral service template, and the binding ADRs. Bodies live in the
+# cited reference files.
+referenceArchitecture:
+  diagrams:
+    - reference-architecture/topology.md
+  serviceTemplate: reference-architecture/service-template.md
+  adrs:
+    - id: domain-depends-on-nothing
+      statement: The domain core imports no adapter, no framework type, and no infrastructure concern; it depends only on the ports it itself defines.
+    - id: adapters-depend-on-ports
+      statement: Every adapter — driving or driven — depends on a port the core owns; dependencies point inward, never outward from the core.
+    - id: instrument-at-adapters-only
+      statement: Observability is emitted at adapter boundaries; the domain core stays uninstrumented so it remains pure and free of transport concerns.
+
+# Each entry carries a `when` predicate so it applies conditionally
+# (PACK_PATTERN_NO_WHEN clears). Bodies are the cited reference files.
+designPatterns:
+  required:
+    - id: repository-port
+      ref: patterns/repository-port.md
+      when: "the core needs persistence"
+    - id: use-case-application-service
+      ref: patterns/use-case.md
+      when: "a driving adapter invokes domain behaviour"
+    - id: dependency-inversion-at-boundary
+      ref: patterns/dependency-inversion.md
+      when: "any boundary crosses into an external system"
+  recommended:
+    - id: adapter-per-external-system
+      ref: patterns/dependency-inversion.md
+      when: "the core integrates with more than one external system"
+  prohibited:
+    - id: framework-type-in-core
+      reason: "couples the domain to a framework; translate at the adapter and keep the core free of transport types"
+
+# Shape contracts, abstract — not a wire schema. Bodies: boundary/dto-mapping.md,
+# boundary/error-translation.md.
+interfaceConventions:
+  ports:
+    naming: "a port is named for the capability the core requires, not the technology that fulfils it (e.g. <Capability>Port, not <Vendor>Client)"
+    ownership: "the core owns and defines every port interface; an adapter implements a port, never the reverse"
+  boundary:
+    dtoMapping: "external DTOs are translated to and from domain entities at the adapter edge; a domain entity never carries a transport type"
+    errorTranslation: "external errors are translated to domain errors at the adapter boundary; the core raises and handles only domain errors"
+    ref: boundary/dto-mapping.md
+
+# N/A — messaging is a driven adapter, not a pack concern. A hexagonal system that
+# uses messaging models it as one driven adapter behind a port; the broker policy,
+# if any, belongs to the messaging stack pack, not to this architecture pack.
+# brokerClientPractice: omitted — N/A, messaging is a driven adapter
+
+# ARCHITECTURAL libraries only, named abstractly. The logger/driver/test
+# framework are the stack pack's separate list (disjoint seam).
+approvedLibraries:
+  required:
+    - name: "a dependency-wiring abstraction"
+      reason: "wires concrete adapters to the ports the core defines at the composition root; the concrete container/injector is the stack pack's"
+  blocked: []
+
+# The WHAT only (required signals). The HOW (logging library, field mechanics)
+# is the stack pack's slice of this seam. Signals are emitted at adapters, never
+# in the core. Body: observability/required-signals.md.
+observabilityConventions:
+  metrics:
+    requiredCounters:
+      - adapter_call_total{adapter,direction}
+  spanAttributes:
+    - adapter.name
+    - port.name
+  requiredLogFields:
+    - trace_id
+    - tenant_id
+  ref: observability/required-signals.md
+
+# Keyed on ARCHITECTURAL artefacts, never **/*.go (that is the stack pack's).
+skillActivations:
+  - skill: codegen
+    when: "files matching **/ports/**, **/adapters/** or **/domain/** are in scope"
+  - skill: designgen
+    when: "files matching **/ports/** or **/domain/** are in scope"
+
+antiPatterns:
+  - id: domain-imports-adapter
+    reason: "reverses the dependency rule; the core must depend only on ports it owns, never on an adapter or its transport"
+  - id: framework-type-leaks-into-core
+    reason: "a framework or transport type inside the core couples the domain to infrastructure and breaks core purity; translate it at the adapter"
+  - id: business-logic-in-adapter
+    reason: "domain rules placed in an adapter cannot be tested without the external system and drift from the core; logic belongs behind a port"
+
+references:
+  - principles.md
+  - anti-patterns.md
+  - patterns/repository-port.md
+  - patterns/use-case.md
+  - patterns/dependency-inversion.md
+  - boundary/dto-mapping.md
+  - boundary/error-translation.md
+  - observability/required-signals.md
+  - reference-architecture/topology.md
+  - reference-architecture/service-template.md
+
+contextLoading:
+  # Keep the eager set small to avoid context-window flooding (HLD NFR).
+  eager:
+    - principles.md
+    - anti-patterns.md
+  lazy:
+    - patterns/repository-port.md
+    - patterns/use-case.md
+    - patterns/dependency-inversion.md
+    - boundary/dto-mapping.md
+    - boundary/error-translation.md
+    - observability/required-signals.md
+    - reference-architecture/topology.md
+    - reference-architecture/service-template.md
+
+conflictResolution:
+  # Above a stack pack ONLY on an unavoidable overlap (default: no overlap, so
+  # this never fires for a well-allocated stack pack). Architecture outranks
+  # stack on the rare genuine clash (README §"two seams").
+  overridePriority: 50
+
+governance:
+  riskTier: 2
+  approval:
+    requiredFrom:
+      - architecture-guild
+  # observabilityConventions signal set is authored as proposed and flagged for
+  # platform/observability-team ratification at this review (Phase 1 OQ-3).
+  reviewDate: 2026-01-31
+
+# Composition with overlays:
+# - Brand/jurisdiction overlays may STRENGTHEN this pack (block a library,
+#   tighten the boundary-translation rule, mandate an extra required signal);
+#   they may not weaken safety-relevant claims (the inward dependency rule,
+#   core purity, instrumentation at adapters only).
+# - This pack names no language; language overlays govern prose only.

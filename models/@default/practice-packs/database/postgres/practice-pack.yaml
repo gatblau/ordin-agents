@@ -1,0 +1,73 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+
+metadata:
+  id: "urn:ordin:default:practice-packs:database:postgres"
+  name: Postgres
+  version: 1.0.0
+  owner: gatblau
+  # Descriptive metadata.
+  description: "Postgres and PL/pgSQL practice for database work: foreign-key indexing, volatility, exception handling, and NUMERIC conventions."
+  category: sdlc
+  # pack class lets a profile require "≥1 database pack" by class.
+  # `database`, not `stack`: this pack carries no language toolchain — it is an
+  # engine binding, orthogonal to the language stack pack (e.g. stack:go).
+  class: database
+  audience:
+    roles:
+      - developer
+      - architect
+    domains:
+      - backend-services
+      - data-engineering
+    languages:
+      - sql
+  useCases:
+    - title: Postgres schema audit
+      summary: Turn the workspace's stack-neutral dbaudit into a full Postgres critique.
+
+description: >
+  Engine-specific practice for Postgres-backed projects. Supplies the
+  Postgres / PL-pgSQL specifics that the cspa workspace's `dbaudit` skill
+  consumes when present. The workspace's dbaudit skill itself is a
+  stack-neutral SQL-audit shell; without this pack it produces a generic
+  SQL critique, with this pack it produces a full Postgres critique
+  (FK indexing rules, PL/pgSQL volatility, EXCEPTION handling, NUMERIC
+  precision conventions, and so on).
+
+
+appliesTo:
+  workspaces:
+    - "urn:ordin:default:workspaces:cspa-431@^1.0.0"
+
+# the command allow-list is
+# withdrawn — the registry composes none. The psql scratch round-trip command
+# lives in the pack's scratch-validation guidance (prose); pre-approval is
+# harness config. The `toolchain` block is the stack's tool-usage
+# policy: deny-side `forbiddenFlags` (here, the production/staging host guards).
+# Stack-specific, so it stays here.
+toolchain:
+  forbiddenFlags:
+    - --host=production
+    - --host=staging
+
+references:
+  # dbaudit references (engine-specific rule sets)
+  - attributes-and-types.md      # dbaudit ATTRIBUTES checks (NUMERIC, VARCHAR, BOOLEAN, …)
+  - constraints-and-integrity.md # dbaudit CONSTRAINTS checks (PK, FK, CHECK, NOT NULL)
+  - functions-plpgsql.md         # dbaudit FUNCTIONS checks (volatility, EXCEPTION, dynamic SQL)
+  - indexing-and-performance.md  # dbaudit PERFORMANCE checks (FK indexes, low-card leading column)
+  - relational-patterns.md       # dbaudit MODELLING checks (multi-tenancy, log/entity carve-out)
+  - views.md                     # dbaudit VIEWS checks (RLS, security barrier, definer rights)
+  # schemagen references (engine-specific migration tooling)
+  - migration-templates.md       # schemagen Phase 3 — Postgres up/down templates
+  - scratch-validation.md        # schemagen Phase 5 — docker postgres + psql round-trip
+  - change-types-addenda.md      # schemagen Phase 1 — Postgres lock semantics, fast paths, version notes
+
+# Composition with overlays:
+# - Brand overlays may add brand-specific approved drivers (e.g. mandate pgx
+#   over lib/pq). This pack is driver-agnostic at the audit level.
+# - Jurisdiction overlays may add data-residency or PII-handling rules
+#   (e.g. encryption-at-rest, row-level-security policies).
+# - Language overlays govern only narrative prose; they do not interact with
+#   the SQL specifics in this pack.

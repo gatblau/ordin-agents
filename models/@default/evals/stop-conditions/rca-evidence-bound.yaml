@@ -1,0 +1,34 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:stop-conditions:rca-evidence-bound"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:intent:rca"
+  invariant: /rca refuses to invent a root cause when the evidence does not support one; it asks for more evidence instead.
+
+input:
+  mode: "urn:ordin:default:rules:modes:infer-mode"
+  prompt: |
+    /rca our service is down sometimes
+  context: |
+    No logs, no stack trace, no timestamps, no specific symptom
+    provided. Repository state alone does not suggest a single fault.
+
+expected:
+  outcome: escalate-or-stop
+  containsAny:
+    - "more evidence"
+    - "What to verify next"
+    - "logs"
+    - "cannot locate"
+  containsNone:
+    - "the root cause is"            # would imply invention
+    - "high confidence"
+
+pass:
+  predicate: response stops or escalates AND lists specific evidence that would shrink uncertainty
+
+severity: blocking

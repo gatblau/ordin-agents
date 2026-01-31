@@ -1,0 +1,87 @@
+apiVersion: ai.enterprise/v1
+kind: capability
+metadata:
+  id: "urn:ordin:default:capabilities:maintain"
+  name: Maintain capability
+  description: "The maintenance chain: capture a change, diagnose, update the spec, plan, apply one phase at a time, and check for drift."
+  version: 1.3.0
+  owner: gatblau
+
+purpose: >
+  Capture change requests, diagnose incidents, structure intent into
+  updated specs, plan phased work, apply one phase at a time, and
+  exit through `/sync-check`. The maintenance chain is the four-move
+  CSPA loop entered through the change door (`/rfc`) or the incident
+  door (`/rca`). The CSPA rule *fix the prompt first* requires intent
+  changes to flow through `/spec` before code is patched. The change
+  door is adaptive: `/rfc` runs `triage` first to classify the change
+  as Trivial, Local, or Standard and selects an adaptive lane; Trivial and Local lanes fuse the loop into a Change
+  brief plus addendum, Standard runs the full path.
+
+composedOf:
+  skills:
+    - "urn:ordin:default:skills:quality:triage"          # move 1 sub-step 0 — change classification on /rfc
+  commands:
+    - "urn:ordin:default:commands:intent:rfc"             # door 2 — change request capture (adaptive lane)
+    - "urn:ordin:default:commands:intent:rca"             # door 3 — incident diagnosis
+    - "urn:ordin:default:commands:lifecycle:spec"            # move 2 — structure intent (mandatory for intent-changing work; Standard lane only)
+    - "urn:ordin:default:commands:lifecycle:breakdown"       # move 3 — plan increments (Standard lane only; fused into Change brief on Local lane)
+    - "urn:ordin:default:commands:lifecycle:apply"           # move 4 — apply increments
+    - "urn:ordin:default:commands:lifecycle:plan-index"      # derived plan roll-up — breakdown adds a row, apply refreshes it
+    - "urn:ordin:default:commands:sync:sync-check"      # exit gate (class-aware acceptance)
+  modes:
+    - "urn:ordin:default:rules:modes:observe-mode"
+    - "urn:ordin:default:rules:modes:infer-mode"
+    - "urn:ordin:default:rules:modes:plan-mode"
+    - "urn:ordin:default:rules:modes:patch-mode"
+    - "urn:ordin:default:rules:modes:execute-mode"  # /apply runs phase exit-criteria commands
+    - "urn:ordin:default:rules:modes:review-mode"
+    - "urn:ordin:default:rules:modes:explain-mode"
+    - "urn:ordin:default:rules:modes:escalate-mode"
+  rules:
+    - "urn:ordin:default:rules:orchestrators:working-modes"
+    - "urn:ordin:default:rules:layer:identifier-verification"
+    - "urn:ordin:default:rules:layer:spec-anchors"  # a rename must carry its anchors
+    - "urn:ordin:default:rules:layer:sql-safety"  # when phase touches schema
+
+defaultToolPolicy:
+  allowed:
+    - filesystem.read
+    - filesystem.write.source         # only inside /apply
+    - shell.execute.allowlisted       # only inside /apply
+  requiresHumanApproval: []
+  prohibited: []
+  # Universal safety floor (git/PR/publish/migration mutations) is asserted once
+  # at the workspace level; not redeclared here.
+
+verificationGates:
+  - name: triage-class-conservative
+    skill: "urn:ordin:default:skills:quality:triage"
+    invariant: never-propose-class-lower-than-most-pessimistic-signal
+    failureBehaviour: stop-and-escalate-to-standard
+  - name: triage-auto-escalation-loud
+    skill: "urn:ordin:default:skills:quality:triage"
+    invariant: mid-flight-trigger-halts-and-preserves-evidence
+    failureBehaviour: stop-and-instruct-restandard-restart
+  - name: rca-evidence-bound
+    skill: "urn:ordin:default:commands:intent:rca"
+    invariant: hypotheses-must-cite-verified-evidence
+    failureBehaviour: stop-and-request-more-evidence
+  - name: breakdown-atomic-phases
+    skill: "urn:ordin:default:commands:lifecycle:breakdown"
+    invariant: every-phase-atomic
+    failureBehaviour: stop-and-report-non-atomic
+  - name: apply-precondition-drift
+    skill: "urn:ordin:default:commands:lifecycle:apply"
+    invariant: preconditions-still-hold
+    failureBehaviour: stop-and-surface-drift
+  - name: apply-one-phase-only
+    skill: "urn:ordin:default:commands:lifecycle:apply"
+    invariant: never-start-next-phase
+    failureBehaviour: stop-at-phase-boundary
+
+flowConstraints:
+  - "Default change-door flow: /rfc -> /spec -> /breakdown -> /apply -> /sync-check (sequential; do not collapse via sub-agent)"
+  - "Default incident-door flow: /rca -> [/spec when intent changes] -> /breakdown -> /apply -> /sync-check"
+  - "/apply stays in main thread; sub-agents would hide patch-mode evidence"
+  - "No exit without /sync-check clean — the CSPA exit invariant"

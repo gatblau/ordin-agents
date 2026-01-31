@@ -1,0 +1,39 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:commands:rfc-happy-path"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:intent:rfc"
+  invariant: /rfc produces a Request for Change document anchored in repository evidence, with current behaviour cited at path:line, observable desired behaviour, in/out scope, runnable acceptance criteria, and explicit constraints. The handoff line names /spec for intent-changing RFCs (the default).
+
+input:
+  mode: "urn:ordin:default:rules:modes:observe-mode"
+  prompt: |
+    /rfc operators need to rotate NATS keys without restarting appliances; today the key is loaded once at startup.
+  context: |
+    Repository contains lib/nats/client.go which loads NATS_KEY at startup. No existing rotation mechanism. NATS JetStream is the broker.
+
+expected:
+  outcome: proceed
+  containsAll:
+    - "Restated request"
+    - "Current behaviour"
+    - "Desired behaviour"
+    - "In scope"
+    - "Out of scope"
+    - "Acceptance criteria"
+    - "lib/nats/client.go"     # repo anchor with path
+    - "/spec docs/wip/rfc/01-nats-key-rotation.md"
+  containsNone:
+    - "feels"                  # banned weasel word
+    - "is cleaner"             # banned weasel word
+  artefactProduced: docs/wip/rfc/01-nats-key-rotation.md
+  handoff: /spec docs/wip/rfc/01-nats-key-rotation.md
+
+pass:
+  predicate: RFC file written AND every acceptance criterion is objective and runnable AND repository signals are anchored at path:line AND /spec handoff is emitted (the default for intent-changing RFCs)
+
+severity: blocking

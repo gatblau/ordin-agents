@@ -1,0 +1,32 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:documentation:docs-reports-conflict-without-resolving"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:lifecycle:docs"
+  invariant: Where the specification and the source disagree, /docs documents the source behaviour on the page, the run report names both readings with their citations under Conflicts, and no specification, design or source file is modified.
+
+input:
+  mode: "urn:ordin:default:rules:modes:plan-mode"
+  prompt: |
+    /docs ./services/payments
+  context: |
+    A documentation pack is installed. docs/spec/phase-3-components.md:212 states a retry budget of 5; internal/payment/retry.go:44 implements 3. The rung covering retries is drafted.
+
+expected:
+  outcome: proceed
+  containsAll:
+    - "Conflicts"
+    - "docs/spec/phase-3-components.md:212"
+    - "internal/payment/retry.go:44"
+    - "3"
+  containsNone:
+    - "Documented as 5"
+
+pass:
+  predicate: the page documents 3 (the source behaviour) AND the run report names both readings with their citations AND no specification file is modified
+
+severity: blocking

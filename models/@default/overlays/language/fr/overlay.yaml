@@ -1,0 +1,15 @@
+apiVersion: ai.enterprise/v1
+kind: language-overlay
+
+metadata:
+  id: "urn:ordin:default:overlays:language:fr"
+  name: French
+  version: 1.0.0
+  owner: gatblau
+  description: "Sets the language the agent writes in to French."
+
+locale: fr   # BCP 47 tag
+
+addRules:
+  - "urn:ordin:default:overlays:language:fr:set-locale"
+  - "urn:ordin:default:rules:layer:output-language"

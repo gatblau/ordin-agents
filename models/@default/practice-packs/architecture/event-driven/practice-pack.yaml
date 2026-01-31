@@ -1,0 +1,205 @@
+apiVersion: ai.enterprise/v1
+kind: practice-pack
+
+metadata:
+  id: "urn:ordin:default:practice-packs:architecture:event-driven"
+  name: Event-driven services
+  version: 1.0.0
+  # Architecture-team owned — NOT the workspace owner (README ownership boundary).
+  owner: architecture-guild
+  # Descriptive metadata.
+  description: "Event-driven architecture with async messaging: producers and consumers linked by a broker, with outbox, idempotent consumers, and dead-letter replay. Names no language or broker."
+  category: sdlc
+  # pack class lets a profile require "≥1 architecture pack" by class.
+  class: architecture
+  # roles/domains only — NO `languages` (the language pairing is the Workspace
+  # Profile's, never an architecture pack's). Roles drawn from the controlled
+  # vocabulary (acetypes.AudienceRoles): developer, architect.
+  audience:
+    roles:
+      - developer
+      - architect
+    domains:
+      - backend-services
+  useCases:
+    - title: Event-driven service shape
+      summary: Supply the producer/consumer reference architecture, async design patterns, and event-interface conventions to the workspace's codegen/designgen skills; the concrete broker and language are the stack pack's and the Workspace Profile's.
+
+description: >
+  Event-driven reference architecture for asynchronous, message-based services.
+  Carries the producer/consumer topology, the async design patterns (outbox,
+  idempotent consumer, dead-letter replay, event-version upcasting), the
+  event-interface conventions (topic naming, schema evolution, envelope shape),
+  broker-client good practice against an ABSTRACT client, the required
+  observability signals, and the architectural anti-patterns. It names no
+  language, framework or broker product: "the platform broker client" is
+  referred to abstractly, so this pack composes with any stack pack that
+  supplies a concrete client. Consumed by the cspa workspace's codegen,
+  designgen and runbookgen skills via "active Practice Pack" indirection; the
+  language pairing is declared by the Workspace Profile, not here.
+
+appliesTo:
+  workspaces:
+    - "urn:ordin:default:workspaces:cspa-431@^1.0.0"
+
+# ---- architecture-side items (this family writes these; no stack-side item) ----
+
+# Producer/consumer topology, a language-neutral service template, and the
+# binding ADRs. Bodies live in the cited reference files.
+referenceArchitecture:
+  diagrams:
+    - reference-architecture/topology.md
+  serviceTemplate: reference-architecture/service-template.md
+  adrs:
+    - id: async-first
+      statement: Inter-service communication is asynchronous by default; synchronous calls are the exception and must be justified.
+    - id: at-least-once-delivery
+      statement: The broker guarantees at-least-once delivery; consumers must tolerate redelivery.
+    - id: consumer-idempotency-required
+      statement: Every consumer is idempotent on an idempotency key; processing the same event twice has the same effect as processing it once.
+
+# Each entry carries a `when` predicate so it applies conditionally
+# (PACK_PATTERN_NO_WHEN clears). Bodies are the cited reference files.
+designPatterns:
+  required:
+    - id: outbox
+      ref: patterns/outbox.md
+      when: "a service publishes events tied to database state changes"
+    - id: idempotency-key
+      ref: patterns/idempotency.md
+      when: "a consumer processes an at-least-once stream"
+  recommended:
+    - id: dead-letter-replay
+      ref: patterns/dead-letter-replay.md
+      when: "a message exceeds its redelivery budget and must be parked for later replay"
+    - id: competing-consumers
+      when: "a single stream must be processed by a horizontally scaled consumer pool"
+    - id: event-version-upcasting
+      ref: events/schema-evolution.md
+      when: "an event schema evolves and old-version events remain in the stream"
+  prohibited:
+    - id: in-memory-event-cache
+      reason: "loses events on restart; durability belongs in the broker / outbox, not process memory"
+    - id: synchronous-rpc-in-handler
+      reason: "couples an async consumer to a synchronous dependency's availability and latency"
+
+# Shape contracts, abstract — not a wire schema. Body: events/topic-naming.md,
+# events/schema-evolution.md.
+interfaceConventions:
+  events:
+    topicNaming: "<bounded-context>.<aggregate>.<event-type>.v<schema-version>"
+    schemaEvolution: backward-compatible-only
+    envelopeRequiredFields:
+      - id
+      - type
+      - occurredAt
+      - traceparent
+      - tenant
+    ref: events/topic-naming.md
+
+# Against an ABSTRACT broker client (no product named). Body:
+# broker/consumer-good-practice.md.
+brokerClientPractice:
+  consumerPattern: durable-pull
+  ackPolicy: ack-after-commit
+  maxInFlight: bounded
+  maxDeliver: bounded
+  redeliveryBackoff: exponential
+  deadLetterThreshold: maxDeliver-exceeded
+  consumerGroupPolicy: one-durable-group-per-logical-consumer
+  ref: broker/consumer-good-practice.md
+
+# ARCHITECTURAL libraries only, named abstractly. The logger/driver/test
+# framework are the stack pack's separate list (disjoint seam).
+approvedLibraries:
+  required:
+    - name: "the platform broker client"
+      reason: "the abstract async transport; the concrete client is the stack pack's"
+    - name: "an outbox helper"
+      reason: "atomically records events with the state change they describe"
+  blocked: []
+
+# The WHAT only (required signals). The HOW (logging library, field mechanics)
+# is the stack pack's slice of this seam. Body: observability/required-signals.md.
+observabilityConventions:
+  metrics:
+    requiredCounters:
+      - event_published_total
+      - event_consumed_total
+      - consumer_lag
+      - dlq_depth
+  spanAttributes:
+    - messaging.system
+    - messaging.destination
+  requiredLogFields:
+    - trace_id
+    - tenant_id
+    - event_id
+  ref: observability/required-signals.md
+
+# Keyed on ARCHITECTURAL artefacts, never **/*.go (that is the stack pack's).
+skillActivations:
+  - skill: codegen
+    when: "files matching **/messaging/**, **/events/** or **/proto/** are in scope"
+  - skill: designgen
+    when: "files matching **/messaging/** or **/events/** are in scope"
+
+antiPatterns:
+  - id: synchronous-call-from-event-handler
+    reason: "reintroduces synchronous coupling into an async consumer; offload or publish a follow-up event instead"
+  - id: publish-inside-db-transaction-without-outbox
+    reason: "the publish and the commit are not atomic; a crash between them loses or duplicates the event"
+  - id: consumer-without-idempotency-key
+    reason: "at-least-once delivery will reprocess events; without a key, side effects double"
+  - id: topic-name-encoding-a-consumer
+    reason: "naming a topic after its consumer couples the producer to the consumer topology"
+
+references:
+  - principles.md
+  - anti-patterns.md
+  - patterns/outbox.md
+  - patterns/idempotency.md
+  - patterns/dead-letter-replay.md
+  - events/topic-naming.md
+  - events/schema-evolution.md
+  - broker/consumer-good-practice.md
+  - observability/required-signals.md
+  - reference-architecture/topology.md
+  - reference-architecture/service-template.md
+
+contextLoading:
+  # Keep the eager set small to avoid context-window flooding (HLD NFR).
+  eager:
+    - principles.md
+    - anti-patterns.md
+  lazy:
+    - patterns/outbox.md
+    - patterns/idempotency.md
+    - patterns/dead-letter-replay.md
+    - events/topic-naming.md
+    - events/schema-evolution.md
+    - broker/consumer-good-practice.md
+    - observability/required-signals.md
+    - reference-architecture/topology.md
+    - reference-architecture/service-template.md
+
+conflictResolution:
+  # Above a stack pack ONLY on an unavoidable overlap (default: no overlap, so
+  # this never fires for a well-allocated stack pack). Architecture outranks
+  # stack on the rare genuine clash (README §"two seams").
+  overridePriority: 50
+
+governance:
+  riskTier: 2
+  approval:
+    requiredFrom:
+      - architecture-guild
+  # observabilityConventions signal set is authored as proposed and flagged for
+  # platform/observability-team ratification at this review (Phase 1 OQ-3).
+  reviewDate: 2026-01-31
+
+# Composition with overlays:
+# - Brand/jurisdiction overlays may STRENGTHEN this pack (block a library,
+#   tighten schema-evolution, mandate an extra required signal); they may not
+#   weaken safety-relevant claims (idempotency, the outbox, at-least-once).
+# - This pack names no language; language overlays govern prose only.

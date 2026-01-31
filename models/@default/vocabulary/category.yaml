@@ -1,0 +1,41 @@
+apiVersion: ai.enterprise/v1
+kind: vocabulary
+metadata:
+  id: "urn:ordin:default:vocabulary:category"
+  name: Category vocabulary
+  version: 1.2.0
+  owner: gatblau
+# The controlled vocabulary of `category` codes. Codes are stable kebab-case ids;
+# a part whose category is not listed here is refused when it is read.
+axis: category
+terms:
+  - code: coordination
+    label: Coordination
+    description: Coordinating a person's requests across agents and crews.
+  - code: documents
+    label: Documents
+    description: Reading, summarising, comparing, drafting and rewriting documents.
+  - code: sdlc
+    label: SDLC
+    description: Software delivery lifecycle workspaces and tooling.
+  - code: discovery
+    label: Discovery
+    description: Product / opportunity discovery.
+  - code: compliance-review
+    label: Compliance review
+    description: Compliance and regulatory review.
+  - code: incident-mgmt
+    label: Incident management
+    description: Incident response and management.
+  - code: architecture
+    label: Architecture
+    description: Architecture and design.
+  - code: finance
+    label: Finance
+    description: Finance and FP&A.
+  - code: risk
+    label: Risk
+    description: Risk assessment and management.
+  - code: brand-tech
+    label: Brand tech
+    description: Brand technology and marketing engineering.

@@ -1,0 +1,43 @@
+apiVersion: ai.enterprise/v1
+kind: capability
+metadata:
+  id: "urn:ordin:default:capabilities:release"
+  name: Release capability
+  description: "Drafts a changelog, version bump, and release notes from a range of commits. Leaves tagging and publishing to you."
+  version: 1.0.0
+  owner: gatblau
+
+purpose: >
+  Draft a changelog fragment, semver bump recommendation, and release
+  notes from a commit range. Never tags, pushes, or publishes; the
+  user runs the suggested commands themselves.
+
+composedOf:
+  skills:
+    - "urn:ordin:default:skills:release:releasegen"
+  commands: []
+  modes:
+    - "urn:ordin:default:rules:modes:observe-mode"
+    - "urn:ordin:default:rules:modes:plan-mode"
+    - "urn:ordin:default:rules:modes:explain-mode"
+    - "urn:ordin:default:rules:modes:escalate-mode"
+  rules:
+    - "urn:ordin:default:rules:orchestrators:working-modes"
+    - "urn:ordin:default:rules:layer:identifier-verification"
+
+toolBindings: []
+
+defaultToolPolicy:
+  allowed:
+    - filesystem.read
+    - shell.execute.git-read
+  requiresHumanApproval: []
+  prohibited:
+    - changelog.write
+  # Universal safety floor (git/PR/publish/migration mutations) is asserted once
+  # at the workspace level; not redeclared here.
+
+verificationGates:
+  - name: breaking-changes-flagged
+    invariant: breaking-changes-must-be-in-rfc
+    failureBehaviour: stop-and-report

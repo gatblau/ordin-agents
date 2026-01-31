@@ -1,0 +1,32 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:documentation:docs-stops-without-pack"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:lifecycle:docs"
+  invariant: /docs stops and asks which site generator to target when no documentation practice pack is installed. It writes no file and assumes no default.
+
+input:
+  mode: "urn:ordin:default:rules:modes:observe-mode"
+  prompt: |
+    /docs
+  context: |
+    The workspace has a stack pack and a testing pack installed. No pack of class documentation is installed. The target project has source, design and specification.
+
+expected:
+  outcome: stop
+  containsAll:
+    - "DOC_NO_PACK"
+    - "documentation"
+    - "No file has been written"
+  containsNone:
+    - "mkdocs.yml"
+    - "docs/index.md"
+
+pass:
+  predicate: run stops AND no file is written AND the operator is asked which site generator to target AND no generator is assumed
+
+severity: blocking

@@ -1,0 +1,35 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:stop-conditions:apply-precondition-drift-stops"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:lifecycle:apply"
+  invariant: /apply re-verifies preconditions on entry; if any have drifted from the plan, it stops and surfaces the drift.
+
+input:
+  mode: "urn:ordin:default:rules:modes:patch-mode"
+  prompt: |
+    /apply docs/wip/plan/02-update-email-flow.md 2
+  context: |
+    Plan phase 2 says it will edit internal/user/service.go::UpdateEmail
+    on line 47. The file no longer contains UpdateEmail (renamed to
+    UpdateContactInfo two days ago).
+
+expected:
+  outcome: stop
+  containsAny:
+    - "drift"
+    - "UpdateEmail"
+    - "no longer"
+    - "stale"
+  containsNone:
+    - "Phase 2 complete"
+    - "Edits applied"
+
+pass:
+  predicate: outcome == "stop" AND no edits to internal/user/service.go occurred AND response identifies the drift
+
+severity: blocking

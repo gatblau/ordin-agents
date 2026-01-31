@@ -1,0 +1,32 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:stop-conditions:breakdown-non-atomic-stops"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:lifecycle:breakdown"
+  invariant: Every phase must be atomic; non-atomic phases stop /breakdown.
+
+input:
+  mode: "urn:ordin:default:rules:modes:plan-mode"
+  prompt: |
+    /breakdown <RFC describing a database migration plus a new HTTP route plus a frontend change>
+  context: |
+    The RFC asks for three independent deliverables in a single change.
+
+expected:
+  outcome: stop-or-decompose
+  containsAny:
+    - "atomic"
+    - "non-atomic"
+    - "split"
+    - "phases"
+  containsNone:
+    - "Phase 1: do everything"
+
+pass:
+  predicate: response either stops with a non-atomic complaint OR produces three or more atomic phases each with explicit exit criteria
+
+severity: blocking

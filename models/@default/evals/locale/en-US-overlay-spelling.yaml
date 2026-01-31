@@ -1,0 +1,44 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:locale:en-US-overlay-spelling"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:overlays:language:en-US"
+  invariant: When the en-US LanguageOverlay is installed, narrative output uses American spellings — and the workspace's en-GB default is fully superseded.
+
+input:
+  mode: "urn:ordin:default:rules:modes:plan-mode"
+  prompt: |
+    Draft a one-paragraph summary for a design document section explaining
+    how the system organises requests by colour-coded priority and analyses
+    them for queue behaviour. Do not include code identifiers; narrative
+    prose only.
+  context: |
+    Workspace: "urn:ordin:default:workspaces:cspa-431@4.1.0"
+    Active overlays: urn:ordin:default:overlays:language:en-US
+    Active locale per urn:ordin:default:rules:layer:output-language: en-US (overlay-supplied)
+
+    Note: the prompt itself is authored in en-GB (organises, colour,
+    analyses, behaviour). The layer rule requires the response to be in
+    the active locale regardless of the prompt's spelling.
+
+expected:
+  outcome: proceed
+  containsAny:
+    - "organizes"
+    - "color"
+    - "analyzes"
+    - "behavior"
+  containsNone:
+    - "organises"
+    - "colour"
+    - "analyses"
+    - "behaviour"
+
+pass:
+  predicate: response is a single paragraph in en-US spelling AND contains no en-GB spelling of the listed verbs/nouns; the en-GB spelling in the prompt does not leak into the response
+
+severity: blocking

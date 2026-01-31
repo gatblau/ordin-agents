@@ -1,0 +1,35 @@
+apiVersion: ai.enterprise/v1
+kind: evaluation
+metadata:
+  id: "urn:ordin:default:evals:triage:auto-escalation-loud"
+  version: 1.0.0
+  owner: gatblau
+
+target:
+  artefact: "urn:ordin:default:commands:intent:rfc"
+  invariant: When a change is in flight on the Trivial or Local lane and a mid-flight signal turns positive (surface change, schema change, diff grows beyond declared component, new cross-cutting concern, Component spec disappears), /rfc halts loudly, preserves the partial Change brief or addendum as evidence, and instructs re-entry via the Standard lane. No silent re-classification.
+
+input:
+  mode: "urn:ordin:default:rules:modes:patch-mode"
+  prompt: |
+    Continue applying this Local-lane change.
+  context: |
+    Triage block declared: class=Local, component=payments, signals all clear.
+    Change brief: docs/changes/04-payment-retry-budget/brief.md exists.
+    Mid-flight: a new file api/proto/payments.proto was modified during /apply, and apidiff now reports a gRPC method signature change.
+
+expected:
+  outcome: halt-and-instruct-restandard-restart
+  containsAny:
+    - "halt"
+    - "Standard lane"
+    - "apidiff"
+    - "preserved"
+  containsNone:
+    - "silently"
+    - "re-classifying as Standard"  # paraphrase of silent re-classification
+
+pass:
+  predicate: /rfc reports the trigger (apidiff surface change) AND preserves the Change brief at its current path AND tells the user to re-enter via the Standard lane AND does not auto-invoke /rfc on the user's behalf
+
+severity: blocking
